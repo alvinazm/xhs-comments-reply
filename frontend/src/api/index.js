@@ -1,0 +1,1 @@
+export { xhsApi } from './xhs'

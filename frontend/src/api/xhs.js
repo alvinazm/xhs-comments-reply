@@ -1,0 +1,48 @@
+import axios from 'axios'
+
+const API_BASE_URL = '/api'
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 60000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+apiClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    const message = error.response?.data?.error || error.message || '网络错误'
+    return Promise.reject(new Error(message))
+  }
+)
+
+export const xhsApi = {
+  startChrome() {
+    return apiClient.post('/start-chrome')
+  },
+
+  checkChrome() {
+    return apiClient.get('/check-chrome')
+  },
+
+  parseUrl(url) {
+    return apiClient.post('/parse-url', { url })
+  },
+
+  getComments(url, maxComments = 20) {
+    return apiClient.post('/get-comments', { url, max_comments: maxComments })
+  },
+
+  replyComment(url, content, commentId = '', userId = '') {
+    return apiClient.post('/reply-comment', {
+      url,
+      content,
+      comment_id: commentId,
+      user_id: userId,
+    })
+  },
+}
+
+export default xhsApi
