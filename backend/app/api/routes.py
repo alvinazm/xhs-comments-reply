@@ -17,6 +17,7 @@ from ..models.schemas import ApiResponse, CommentRequest, ReplyRequest
 from ..services import XiaohongshuService
 from ..services.chrome_launcher import ensure_chrome, has_display
 from ..services.xhs.errors import NoFeedDetailError, PageNotAccessibleError, XHSError
+from ..services.csv_storage import save_comments_to_csv, get_csv_path, csv_exists
 
 logger = logging.getLogger("api")
 
@@ -134,6 +135,8 @@ def get_comments():
             note.comment_count,
         )
 
+        session_id = save_comments_to_csv(comments)
+
         return jsonify(
             ApiResponse(
                 success=True,
@@ -153,8 +156,9 @@ def get_comments():
                             "shared_count": note.shared_count,
                         },
                     },
-                    "comments": [format_comment(c) for c in comments],
+                    "comments": [format_comment(c) for c in comments[:5]],
                     "total_comments": total,
+                    "session_id": session_id,
                 },
             ).to_dict()
         )
@@ -301,3 +305,29 @@ def download_comments_csv():
         return jsonify(
             ApiResponse(success=False, error=f"下载 CSV 失败: {e!s}").to_dict()
         ), 500
+
+
+@comment_bp.route("/download-cached-csv", methods=["POST"])
+def download_cached_csv():
+    """下载已缓存的评论 CSV。"""
+    data = request.get_json()
+    session_id = data.get("session_id", "")
+
+    if not session_id:
+        return jsonify(
+            ApiResponse(success=False, error="缺少 session_id").to_dict()
+        ), 400
+
+    if not csv_exists(session_id):
+        return jsonify(
+            ApiResponse(success=False, error="文件已过期，请重新下载").to_dict()
+        ), 404
+
+    file_path = get_csv_path(session_id)
+    filename = f"comments_{session_id[:8]}.csv"
+
+    from flask import send_file
+
+    return send_file(
+        file_path, mimetype="text/csv", as_attachment=True, download_name=filename
+    )

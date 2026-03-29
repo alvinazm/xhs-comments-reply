@@ -94,7 +94,6 @@ case "${1:-start}" in
         cleanup_ports
         start_backend
         start_frontend
-        start_chrome
         echo ""
         echo -e "${GREEN}=== 所有服务已启动 ==="
         echo -e "后端: http://127.0.0.1:$BACKEND_PORT"
@@ -116,7 +115,6 @@ case "${1:-start}" in
         sleep 1
         start_backend
         start_frontend
-        start_chrome
         echo ""
         echo -e "${GREEN}=== 所有服务已启动 ==="
         echo -e "后端: http://127.0.0.1:$BACKEND_PORT"
@@ -131,9 +129,6 @@ case "${1:-start}" in
         ;;
     frontend)
         start_frontend
-        ;;
-    chrome)
-        start_chrome
         ;;
     *)
         echo "用法: $0 {start|stop|restart|backend|frontend|chrome}"

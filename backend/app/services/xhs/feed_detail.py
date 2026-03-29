@@ -111,7 +111,7 @@ def get_feed_detail(
         except Exception as e:
             logger.warning("加载全部评论失败: %s", e)
 
-    return _extract_feed_detail(page, feed_id)
+    return _extract_feed_detail(page, feed_id, load_all_comments)
 
 
 def _check_page_accessible(page: Page, url: str = "") -> None:
@@ -152,7 +152,9 @@ def _is_scan_qrcode_verification(text: str) -> bool:
     return any(kw in text for kw in _SCAN_QRCODE_KEYWORDS)
 
 
-def _extract_feed_detail(page: Page, feed_id: str) -> FeedDetailResponse:
+def _extract_feed_detail(
+    page: Page, feed_id: str, load_all_comments: bool = False
+) -> FeedDetailResponse:
     """从 __INITIAL_STATE__ 提取 Feed 详情。"""
     js_code = f"""
     (() => {{
@@ -284,6 +286,109 @@ def _load_all_comments(page: Page, config: CommentLoadConfig) -> None:
     logger.info(
         "加载结束: %d 条评论, 点击: %d, 跳过: %d", count, total_clicked, total_skipped
     )
+    scroll_interval = get_scroll_interval(config.scroll_speed)
+
+    logger.info("开始加载评论...")
+    _scroll_to_comments_area(page)
+    sleep_random(*HUMAN_DELAY)
+
+    if _check_no_comments(page):
+        logger.info("检测到无评论区域，跳过加载")
+        return
+
+    expected_total = _get_expected_comment_count(page)
+    logger.info("预期评论数: %s", expected_total)
+
+    last_count = 0
+    last_scroll_top = 0
+    stagnant_checks = 0
+    total_clicked = 0
+    total_skipped = 0
+
+    for attempt in range(max_attempts):
+        logger.debug("=== 尝试 %d/%d ===", attempt + 1, max_attempts)
+
+        if _check_end_container(page):
+            count = _get_comment_count(page)
+            end_reached = True
+            if expected_total and count >= expected_total:
+                logger.info(
+                    "检测到 THE END，已达预期评论数: %d/%d", count, expected_total
+                )
+                return
+            logger.info(
+                "检测到 THE END，但未达预期评论数 (%d/%d)，继续滚动...",
+                count,
+                expected_total,
+            )
+            page.evaluate("window.scrollBy(0, -window.innerHeight)")
+            sleep_random(500, 1000)
+            end_reached = False
+
+        if config.click_more_replies and attempt % BUTTON_CLICK_INTERVAL == 0:
+            clicked, skipped = _click_show_more_buttons(
+                page, config.max_replies_threshold
+            )
+            total_clicked += clicked
+            total_skipped += skipped
+            if clicked > 0 or skipped > 0:
+                sleep_random(*READ_TIME)
+                c2, s2 = _click_show_more_buttons(page, config.max_replies_threshold)
+                total_clicked += c2
+                total_skipped += s2
+                if c2 > 0 or s2 > 0:
+                    sleep_random(*SHORT_READ)
+
+        current_count = _get_comment_count(page)
+        if current_count != last_count:
+            logger.info("评论增加: %d -> %d", last_count, current_count)
+            last_count = current_count
+            stagnant_checks = 0
+
+            if expected_total and current_count >= expected_total:
+                logger.info("已达到预期评论数: %d/%d", current_count, expected_total)
+                return
+        else:
+            stagnant_checks += 1
+
+        if config.max_comment_items > 0 and current_count >= config.max_comment_items:
+            logger.info(
+                "已达到目标评论数: %d/%d", current_count, config.max_comment_items
+            )
+            return
+
+        if current_count > 0:
+            _scroll_to_last_comment(page)
+            sleep_random(*POST_SCROLL)
+
+        large_mode = stagnant_checks >= LARGE_SCROLL_TRIGGER
+        push_count = 1
+        if large_mode:
+            push_count = 3 + random.randint(0, 2)
+
+        scroll_delta, current_scroll_top = _human_scroll(
+            page, config.scroll_speed, large_mode, push_count
+        )
+
+        if scroll_delta < MIN_SCROLL_DELTA or current_scroll_top == last_scroll_top:
+            stagnant_checks += 1
+        else:
+            stagnant_checks = 0
+            last_scroll_top = current_scroll_top
+
+        if stagnant_checks >= STAGNANT_LIMIT:
+            logger.info("停滞过多，尝试大冲刺...")
+            _human_scroll(page, config.scroll_speed, True, 10)
+            stagnant_checks = 0
+
+        time.sleep(scroll_interval)
+
+    logger.info("达到最大尝试次数，最后冲刺...")
+    _human_scroll(page, config.scroll_speed, True, FINAL_SPRINT_PUSH_COUNT)
+    count = _get_comment_count(page)
+    logger.info(
+        "加载结束: %d 条评论, 点击: %d, 跳过: %d", count, total_clicked, total_skipped
+    )
 
 
 def _human_scroll(
@@ -341,6 +446,17 @@ def _scroll_to_last_comment(page: Page) -> None:
 def _get_comment_count(page: Page) -> int:
     """获取当前评论数量。"""
     return page.get_elements_count(PARENT_COMMENT)
+
+
+def _get_expected_comment_count(page: Page) -> int | None:
+    """从页面获取预期评论总数（如'共49条评论'）。"""
+    text = page.get_element_text(TOTAL_COMMENT)
+    if not text:
+        return None
+    match = _TOTAL_COMMENT_RE.search(text)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def _check_no_comments(page: Page) -> bool:

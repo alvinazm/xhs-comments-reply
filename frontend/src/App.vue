@@ -199,7 +199,8 @@ const error = ref('')
 const note = ref(null)
 const comments = ref([])
 const totalComments = ref(0)
-const displayedCount = 10
+const displayedCount = 5
+const sessionId = ref(null)
 const showReplyModal = ref(false)
 const replyTarget = ref(null)
 const replyContent = ref('')
@@ -250,6 +251,7 @@ const fetchComments = async () => {
       note.value = res.data.note
       comments.value = res.data.comments
       totalComments.value = res.data.total_comments
+      sessionId.value = res.data.session_id
     } else {
       error.value = res.error || '获取评论失败'
     }
@@ -304,13 +306,18 @@ onMounted(() => {
 })
 
 const downloadCsv = async () => {
+  if (!sessionId.value) {
+    error.value = '请先获取评论后再下载'
+    return
+  }
   try {
-    const response = await fetch('/api/download-comments-csv', {
+    const response = await fetch('/api/download-cached-csv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url.value, max_comments: 99999 }),
+      body: JSON.stringify({ session_id: sessionId.value }),
     })
-    if (response.ok) {
+    const contentType = response.headers.get('content-type') || ''
+    if (response.ok && contentType.includes('text/csv')) {
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -320,9 +327,17 @@ const downloadCsv = async () => {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(downloadUrl)
+    } else {
+      const text = await response.text()
+      try {
+        const json = JSON.parse(text)
+        error.value = json.error || '下载 CSV 失败'
+      } catch {
+        error.value = text.substring(0, 100) || '下载 CSV 失败'
+      }
     }
   } catch (e) {
-    error.value = '下载 CSV 失败'
+    error.value = `下载 CSV 失败: ${e.message}`
   }
 }
 </script>
