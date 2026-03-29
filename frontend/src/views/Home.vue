@@ -11,7 +11,18 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
-      <div v-if="!chromeStarted" class="bg-white rounded-lg shadow-md p-8 mb-6">
+      <div v-if="checkingChrome" class="bg-white rounded-lg shadow-md p-8 mb-6">
+        <div class="text-center">
+          <div class="mb-6">
+            <svg class="w-20 h-20 mx-auto text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <p class="text-gray-500">检查 Chrome 状态中...</p>
+        </div>
+      </div>
+
+      <div v-else-if="!chromeStarted" class="bg-white rounded-lg shadow-md p-8 mb-6">
         <div class="text-center">
           <div class="mb-6">
             <svg class="w-20 h-20 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,11 +43,6 @@
       </div>
 
       <div v-else class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="w-3 h-3 bg-green-500 rounded-full"></span>
-          <span class="text-green-700 font-medium">Chrome 已启动</span>
-        </div>
-
         <div class="mb-4">
           <label class="block text-sm font-medium text-gray-700 mb-2">
             小红书链接
@@ -198,6 +204,7 @@ const router = useRouter()
 const exportStore = useExportStore()
 
 const chromeStarted = ref(false)
+const checkingChrome = ref(true)
 const startingChrome = ref(false)
 const chromeError = ref('')
 const url = ref('')
@@ -253,9 +260,11 @@ const startChrome = async () => {
 const checkChromeStatus = async () => {
   try {
     const res = await xhsApi.checkChrome()
-    chromeStarted.value = res.running || false
+    chromeStarted.value = res.data?.running || false
   } catch (e) {
     chromeStarted.value = false
+  } finally {
+    checkingChrome.value = false
   }
 }
 
