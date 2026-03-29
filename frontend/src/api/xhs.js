@@ -43,6 +43,24 @@ export const xhsApi = {
       user_id: userId,
     })
   },
+
+  exportCommentsAsync(url, maxComments) {
+    return apiClient.post('/export-comments-async', { url, max_comments: maxComments })
+  },
+
+  getExportStatus(taskId) {
+    return apiClient.get(`/export-status/${taskId}`)
+  },
+
+  downloadExportFile(taskId) {
+    return apiClient.get(`/export-download/${taskId}`, {
+      responseType: 'blob',
+    })
+  },
+
+  getAllExportTasks() {
+    return apiClient.get('/export-tasks')
+  },
 }
 
 export default xhsApi

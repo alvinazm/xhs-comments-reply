@@ -120,6 +120,77 @@ class XiaohongshuService:
             browser.close_page(page)
             browser.close()
 
+    def get_note_and_initial_comments(
+        self,
+        url: str,
+        initial_count: int = 5,
+    ) -> tuple[NoteInfo, list[CommentResponse], int]:
+        """获取笔记信息和初始评论（不滚动加载，快速响应）。
+
+        Args:
+            url: 小红书笔记 URL。
+            initial_count: 初始获取的评论数量。
+
+        Returns:
+            (笔记信息, 评论列表, 总评论数)
+
+        Raises:
+            ValueError: URL 解析失败。
+            PageNotAccessibleError: 页面不可访问。
+            NoFeedDetailError: 未获取到详情。
+            XHSError: 其他错误。
+        """
+        parsed = parse_xhs_url(url)
+        if not parsed:
+            raise ValueError("无效的小红书链接")
+
+        feed_id = parsed["feed_id"]
+        xsec_token = parsed["xsec_token"]
+
+        if not ensure_chrome(port=self.port, headless=not has_display()):
+            raise RuntimeError("Chrome 启动失败")
+
+        browser = Browser(host=self.host, port=self.port)
+        page = browser.new_page()
+
+        try:
+            detail = get_feed_detail(
+                page,
+                feed_id,
+                xsec_token,
+                load_all_comments=False,
+            )
+
+            note_info = NoteInfo(
+                note_id=detail.note.note_id,
+                xsec_token=detail.note.xsec_token,
+                title=detail.note.title,
+                desc=detail.note.desc,
+                type=detail.note.type,
+                ip_location=detail.note.ip_location,
+                user_nickname=detail.note.user.nickname or detail.note.user.nick_name,
+                liked_count=detail.note.interact_info.liked_count,
+                collected_count=detail.note.interact_info.collected_count,
+                comment_count=detail.note.interact_info.comment_count,
+                shared_count=detail.note.interact_info.shared_count,
+            )
+
+            comments = [
+                CommentResponse.from_dict(c.to_dict())
+                for c in detail.comments.list_[:initial_count]
+            ]
+            total = (
+                int(detail.note.interact_info.comment_count)
+                if detail.note.interact_info.comment_count
+                else 0
+            )
+
+            return note_info, comments, total
+
+        finally:
+            browser.close_page(page)
+            browser.close()
+
     def reply_comment(
         self,
         url: str,
