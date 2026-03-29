@@ -478,8 +478,15 @@ def start_classify(task_id: str):
         ), 400
 
     data = request.get_json() or {}
-    batch_size = max(1, min(int(data.get("batch_size", 20)), 100))
-    workers = max(1, min(int(data.get("workers", 5)), 20))
+    try:
+        batch_size = max(1, min(int(data.get("batch_size", 20)), 100))
+        workers = max(1, min(int(data.get("workers", 5)), 20))
+    except (ValueError, TypeError):
+        return jsonify(
+            ApiResponse(
+                success=False, error="batch_size 和 workers 必须为整数"
+            ).to_dict()
+        ), 400
 
     task_manager.update_classification_status(task_id, "running", 0)
 
