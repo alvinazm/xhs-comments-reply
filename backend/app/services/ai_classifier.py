@@ -46,7 +46,12 @@ def load_config() -> tuple:
 
 def classify_single_batch(client, batch: list) -> list:
     """对单批评论进行分类。"""
-    comment_text = "\n".join([f"[{c['comment_id']}] {c['text'][:500]}" for c in batch])
+    comment_text = "\n".join(
+        [
+            f"[{c['comment_id']}] {c['text'].encode()[:500].decode('utf-8', errors='ignore')}"
+            for c in batch
+        ]
+    )
 
     try:
         response = client.chat.completions.create(
