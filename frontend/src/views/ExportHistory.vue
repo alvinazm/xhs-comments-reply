@@ -127,7 +127,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { xhsApi } from '../api/xhs'
 import { useExportStore } from '../stores/export'
 
@@ -192,13 +192,22 @@ const handleClassify = async (task) => {
   }
 }
 
+const classificationPollInterval = ref(null)
+const MAX_POLL_ATTEMPTS = 150
+
 const pollClassificationStatus = async (taskId) => {
-  const interval = setInterval(async () => {
+  let attempts = 0
+  classificationPollInterval.value = setInterval(async () => {
+    attempts++
+    if (attempts >= MAX_POLL_ATTEMPTS) {
+      clearInterval(classificationPollInterval.value)
+      return
+    }
     try {
       const res = await xhsApi.getClassificationStatus(taskId)
       const data = res.data.data
       if (data.classification_status === 'completed' || data.classification_status === 'failed') {
-        clearInterval(interval)
+        clearInterval(classificationPollInterval.value)
         await exportStore.fetchTasks()
       }
     } catch (e) {
@@ -230,5 +239,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   exportStore.stopPolling()
+  if (classificationPollInterval.value) {
+    clearInterval(classificationPollInterval.value)
+  }
 })
 </script>
