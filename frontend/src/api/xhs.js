@@ -61,6 +61,18 @@ export const xhsApi = {
   getAllExportTasks() {
     return apiClient.get('/export-tasks')
   },
+
+  startClassify(taskId, batchSize = 20, workers = 5) {
+    return apiClient.post(`/classify/${taskId}`, { batch_size: batchSize, workers })
+  },
+
+  getClassificationStatus(taskId) {
+    return apiClient.get(`/classification-status/${taskId}`)
+  },
+
+  downloadClassifiedFile(taskId) {
+    return apiClient.get(`/download-classified/${taskId}`, { responseType: 'blob' })
+  },
 }
 
 export default xhsApi
