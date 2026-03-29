@@ -48,12 +48,26 @@
                 </p>
               </div>
 
-              <div v-if="task.status === 'completed'" class="ml-4">
+              <div v-if="task.status === 'completed'" class="ml-4 flex gap-2">
                 <button
                   @click="downloadTask(task.task_id)"
                   class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
                 >
                   下载
+                </button>
+                <button
+                  v-if="task.classification_status === 'none'"
+                  @click="handleClassify(task)"
+                  class="bg-purple-500 text-white py-1 px-3 rounded-lg hover:bg-purple-600 text-sm"
+                >
+                  AI智能分类
+                </button>
+                <button
+                  v-if="task.classification_status === 'completed'"
+                  @click="downloadClassified(task)"
+                  class="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm"
+                >
+                  下载分类CSV
                 </button>
               </div>
             </div>
@@ -76,6 +90,30 @@
 
             <div v-if="task.status === 'completed'" class="text-sm text-gray-600">
               已获取 {{ task.total_fetched }} 条评论
+            </div>
+
+            <div v-if="task.classification_status === 'running'" class="mb-2 mt-2">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-purple-600">AI分类中...</span>
+                <span class="text-gray-500">{{ task.classification_progress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-purple-500 h-2 rounded-full transition-all"
+                  :style="{ width: task.classification_progress + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <div v-if="task.classification_status === 'completed'" class="mt-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full">
+                <span class="text-sm text-purple-700">AI分类完成:</span>
+                <span class="text-xs text-gray-600">
+                  正面: {{ task.classification_summary?.positive || 0 }},
+                  负面: {{ task.classification_summary?.negative || 0 }},
+                  问题: {{ task.classification_summary?.question || 0 }}
+                </span>
+              </div>
             </div>
 
             <div v-if="task.status === 'failed'" class="text-sm text-red-500">
@@ -142,6 +180,46 @@ const downloadTask = async (taskId) => {
     }
   } catch (e) {
     alert(`下载失败: ${e.message}`)
+  }
+}
+
+const handleClassify = async (task) => {
+  try {
+    await xhsApi.startClassify(task.task_id)
+    pollClassificationStatus(task.task_id)
+  } catch (e) {
+    console.error('分类失败', e)
+  }
+}
+
+const pollClassificationStatus = async (taskId) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await xhsApi.getClassificationStatus(taskId)
+      const data = res.data.data
+      if (data.classification_status === 'completed' || data.classification_status === 'failed') {
+        clearInterval(interval)
+        await exportStore.fetchTasks()
+      }
+    } catch (e) {
+      console.error('获取分类状态失败', e)
+    }
+  }, 2000)
+}
+
+const downloadClassified = async (task) => {
+  try {
+    const res = await xhsApi.downloadClassifiedFile(task.task_id)
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `classified_${task.task_id.slice(0, 8)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('下载失败', e)
   }
 }
 
