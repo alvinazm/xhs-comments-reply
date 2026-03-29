@@ -478,8 +478,8 @@ def start_classify(task_id: str):
         ), 400
 
     data = request.get_json() or {}
-    batch_size = data.get("batch_size", 20)
-    workers = data.get("workers", 5)
+    batch_size = max(1, min(int(data.get("batch_size", 20)), 100))
+    workers = max(1, min(int(data.get("workers", 5)), 20))
 
     task_manager.update_classification_status(task_id, "running", 0)
 
@@ -488,7 +488,10 @@ def start_classify(task_id: str):
 
     def run_classification():
         def progress_callback(progress):
-            task_manager.update_classification_status(task_id, "running", progress)
+            try:
+                task_manager.update_classification_status(task_id, "running", progress)
+            except Exception as e:
+                logger.error("进度更新失败: %s", e)
 
         result = execute_classify_task(
             task_id, task.file_path, batch_size, workers, progress_callback
@@ -504,7 +507,16 @@ def start_classify(task_id: str):
 
     thread = threading.Thread(target=run_classification)
     thread.daemon = True
-    thread.start()
+    try:
+        thread.start()
+    except Exception as e:
+        logger.error("启动分类线程失败: %s", e)
+        task_manager.update_classification_status(
+            task_id, "failed", error_message=str(e)
+        )
+        return jsonify(
+            ApiResponse(success=False, error=f"启动分类线程失败: {e}").to_dict()
+        ), 500
 
     return jsonify(
         ApiResponse(
@@ -550,7 +562,8 @@ def download_classified_file(task_id: str):
     if task.classification_status != "completed":
         return jsonify(ApiResponse(success=False, error="请先完成分类").to_dict()), 400
 
-    classified_path = task.file_path.replace(".csv", "_classified.csv")
+    base, ext = os.path.splitext(task.file_path)
+    classified_path = f"{base}_classified{ext}" if ext else f"{base}_classified.csv"
     if not os.path.exists(classified_path):
         return jsonify(
             ApiResponse(success=False, error="分类文件不存在").to_dict()
