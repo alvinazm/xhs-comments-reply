@@ -184,6 +184,9 @@ const downloadTask = async (taskId) => {
 }
 
 const handleClassify = async (task) => {
+  if (classificationPollInterval.value) {
+    clearInterval(classificationPollInterval.value)
+  }
   try {
     await xhsApi.startClassify(task.task_id)
     pollClassificationStatus(task.task_id)
