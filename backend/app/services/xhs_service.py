@@ -198,7 +198,7 @@ class XiaohongshuService:
         comment_id: str = "",
         user_id: str = "",
     ) -> None:
-        """回复评论。
+        """回复单条评论。
 
         Args:
             url: 小红书笔记 URL。
@@ -231,6 +231,72 @@ class XiaohongshuService:
 
         try:
             reply_comment(page, feed_id, xsec_token, content, comment_id, user_id)
+        finally:
+            browser.close_page(page)
+            browser.close()
+
+    def reply_comments_batch(
+        self,
+        url: str,
+        comments: list,
+    ) -> tuple[int, list]:
+        """批量回复评论，复用同一个页面。
+
+        Args:
+            url: 小红书笔记 URL。
+            comments: 评论列表 [{"comment_id": "", "user_id": "", "reply_text": ""}, ...]
+
+        Returns:
+            (成功数量, 失败列表)
+
+        Raises:
+            ValueError: 参数错误。
+        """
+        if not comments:
+            return 0, []
+
+        import random
+
+        parsed = parse_xhs_url(url)
+        if not parsed:
+            raise ValueError("无效的小红书链接")
+
+        feed_id = parsed["feed_id"]
+        xsec_token = parsed["xsec_token"]
+
+        if not ensure_chrome(port=self.port, headless=not has_display()):
+            raise RuntimeError("Chrome 启动失败")
+
+        browser = Browser(host=self.host, port=self.port)
+        page = browser.new_page()
+
+        success_count = 0
+        failed = []
+
+        try:
+            for comment in comments:
+                comment_id = comment.get("comment_id", "")
+                user_id = comment.get("user_id", "")
+                content = comment.get("reply_text", "")
+
+                if not content:
+                    continue
+                if not comment_id and not user_id:
+                    continue
+
+                try:
+                    reply_comment(
+                        page, feed_id, xsec_token, content, comment_id, user_id
+                    )
+                    success_count += 1
+                except Exception as e:
+                    comment["error"] = str(e)
+                    failed.append(comment)
+
+                if comment != comments[-1]:
+                    time.sleep(random.uniform(3, 8))
+
+            return success_count, failed
         finally:
             browser.close_page(page)
             browser.close()
