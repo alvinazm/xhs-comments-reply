@@ -1,12 +1,8 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <header class="bg-white shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 py-4">
         <h1 class="text-2xl font-bold text-xhs-red">小红书评论获取</h1>
-        <nav class="flex gap-4">
-          <router-link to="/" class="text-gray-600 hover:text-xhs-red font-medium">评论获取</router-link>
-          <router-link to="/export-history" class="text-gray-600 hover:text-xhs-red">导出历史</router-link>
-        </nav>
       </div>
     </header>
 
@@ -73,7 +69,7 @@
           :disabled="loading"
           class="w-full bg-xhs-red text-white py-2 px-4 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {{ loading ? '加载中...' : '获取评论' }}
+          {{ loading ? '获取中...' : '获取评论' }}
         </button>
       </div>
 
@@ -87,71 +83,167 @@
         </button>
       </div>
 
-      <div v-if="note" class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-bold mb-4">{{ note.title }}</h2>
-        <div class="flex items-center gap-4 mb-4">
-          <span class="text-gray-600">作者: {{ note.user.nickname }}</span>
-          <span class="text-gray-400">|</span>
-          <span class="text-gray-600">IP属地: {{ note.ip_location }}</span>
+      <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+        <h2 class="text-xl font-bold mb-6">导出历史</h2>
+        
+        <div v-if="loading" class="mb-4">
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-blue-600">正在获取评论...</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-500 h-2 rounded-full animate-pulse" style="width: 60%"></div>
+          </div>
         </div>
-        <div class="flex gap-6 text-sm text-gray-500">
-          <span>👍 {{ note.interact_info.liked_count }}</span>
-          <span>⭐ {{ note.interact_info.collected_count }}</span>
-          <span>💬 {{ note.interact_info.comment_count }}</span>
-          <span>↗️ {{ note.interact_info.shared_count }}</span>
-        </div>
-      </div>
-
-      <div v-if="comments.length > 0" class="bg-white rounded-lg shadow-md p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-bold">评论列表 (展示 {{ displayedComments.length }} 条，共 {{ totalComments }} 条)</h3>
-          <button
-            @click="goToExportHistory"
-            class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
-          >
-            导出CSV
-          </button>
+        
+        <div v-if="exportStore.state.tasks.length === 0 && !loading" class="text-center py-8 text-gray-500">
+          暂无导出记录
         </div>
 
-        <div v-if="totalComments > displayedComments.length" class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-4 text-sm">
-          完整 {{ totalComments }} 条评论请下载 CSV 查看
-        </div>
-
-        <div class="space-y-4">
+        <div v-else class="space-y-4">
           <div
-            v-for="comment in displayedComments"
-            :key="comment.id"
-            class="border-b border-gray-100 pb-4 last:border-0"
+            v-for="task in exportStore.state.tasks"
+            :key="task.task_id"
+            class="border border-gray-200 rounded-lg p-4"
           >
-            <div class="flex items-start gap-3">
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium">{{ comment.user.nickname }}</span>
-                  <span class="text-xs text-gray-500">(ID: {{ comment.user.user_id }})</span>
-                  <span class="text-xs text-gray-400">{{ comment.ip_location }}</span>
-                </div>
-                <p class="text-gray-800 mb-2">{{ comment.content }}</p>
-                <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
-                  <span>👍 {{ comment.like_count }}</span>
-                  <span>🕐 {{ comment.create_time_str }}</span>
-                  <span>ID: {{ comment.id }}</span>
-                </div>
-                <button
-                  @click="openReplyModal(comment)"
-                  class="text-xhs-red hover:underline text-sm"
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span 
+                  class="px-2 py-0.5 text-xs rounded-full"
+                  :class="{
+                    'bg-yellow-100 text-yellow-700': task.status === 'pending',
+                    'bg-blue-100 text-blue-700': task.status === 'running',
+                    'bg-green-100 text-green-700': task.status === 'completed',
+                    'bg-red-100 text-red-700': task.status === 'failed',
+                  }"
                 >
-                  回复
-                </button>
+                  {{ task.status === 'completed' ? '已完成' : task.status === 'running' ? '获取中' : task.status === 'failed' ? '获取失败' : '等待中' }}
+                </span>
+                <span v-if="task.status === 'running'" class="text-xs text-gray-400">
+                  获取进度: {{ task.progress }}%
+                </span>
+                <span v-else-if="task.note_title" class="text-sm font-medium text-gray-800">
+                  {{ task.note_title }}
+                </span>
+                <span class="text-sm text-gray-500">
+                  {{ formatTime(task.created_at) }}
+                </span>
+                <span v-if="task.comment_count" class="text-xs text-gray-400">
+                  共 {{ task.comment_count }} 条评论
+                </span>
+              </div>
 
-                <div v-if="comment.sub_comments && comment.sub_comments.length > 0" class="mt-3 pl-4 border-l-2 border-gray-100 space-y-3">
-                  <div v-for="sub in comment.sub_comments" :key="sub.id" class="text-sm">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium">{{ sub.user.nickname }}</span>
-                      <span class="text-xs text-gray-400">{{ sub.ip_location }}</span>
-                    </div>
-                    <p class="text-gray-700 mt-1">{{ sub.content }}</p>
-                  </div>
+              <div v-if="task.status === 'running'" class="mt-2">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    class="bg-blue-500 h-2 rounded-full transition-all"
+                    :style="{ width: task.progress + '%' }"
+                  ></div>
                 </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  已获取 {{ task.total_fetched }} 条评论
+                </p>
+              </div>
+
+              <div class="flex gap-2">
+                <button
+                  v-if="task.status === 'completed'"
+                  @click="downloadTask(task.task_id)"
+                  class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
+                >
+                  下载CSV
+                </button>
+                <button
+                  v-if="task.status === 'completed' && task.classification_status === 'none'"
+                  @click="handleClassify(task)"
+                  class="bg-purple-500 text-white py-1 px-3 rounded-lg hover:bg-purple-600 text-sm"
+                >
+                  AI智能分类
+                </button>
+                <button
+                  v-if="task.status === 'completed' && task.classification_status === 'completed'"
+                  @click="downloadClassified(task)"
+                  class="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm"
+                >
+                  下载分类CSV
+                </button>
+              </div>
+            </div>
+            
+            <p class="text-xs text-blue-500 hover:underline cursor-pointer mb-1" @click="openUrl(task.url)">
+              {{ task.url }}
+            </p>
+            
+            <p v-if="task.status === 'completed'" class="text-sm text-gray-600">
+              已获取 {{ task.total_fetched }} 条评论
+            </p>
+
+            <div v-if="task.classification_status === 'running'" class="mt-2">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-purple-600">AI分类中...</span>
+                <span class="text-gray-500">{{ task.classification_progress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-purple-500 h-2 rounded-full transition-all"
+                  :style="{ width: task.classification_progress + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <div v-if="task.classification_status === 'completed'" class="mt-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full">
+                <span class="text-sm text-purple-700">AI分类完成:</span>
+                <span class="text-xs text-gray-600">
+                  正面: {{ task.classification_summary?.praise || 0 }},
+                  问题: {{ task.classification_summary?.question || 0 }},
+                  中性: {{ task.classification_summary?.neutral || 0 }},
+                  建设性: {{ task.classification_summary?.constructive || 0 }},
+                  垃圾: {{ task.classification_summary?.spam || 0 }},
+                  攻击性: {{ task.classification_summary?.hate || 0 }}
+                </span>
+              </div>
+
+              <div class="mt-3 flex gap-2 flex-wrap">
+                <span class="text-sm text-gray-500">回复:</span>
+                <label class="cursor-pointer bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm">
+                  上传CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    class="hidden"
+                    @change="(e) => handleCsvUpload(e, task)"
+                  />
+                </label>
+              </div>
+
+              <div v-if="replyData[task.task_id]?.to_reply > 0" class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                <p class="text-sm text-green-700 mb-2">
+                  确认发送 {{ replyData[task.task_id].to_reply }} 条回复？
+                </p>
+                <button
+                  @click="() => confirmReply(task)"
+                  class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
+                >
+                  确认发送
+                </button>
+              </div>
+
+              <div v-if="replyProgress[task.task_id]?.running" class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-sm text-blue-700">
+                  正在发送 {{ replyProgress[task.task_id].current }}/{{ replyProgress[task.task_id].total }}
+                </p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                  <div 
+                    class="bg-blue-500 h-2 rounded-full"
+                    :style="{ width: (replyProgress[task.task_id].current / replyProgress[task.task_id].total * 100) + '%' }"
+                  ></div>
+                </div>
+              </div>
+
+              <div v-if="replyProgress[task.task_id]?.completed" class="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p class="text-sm text-gray-700">
+                  发送完成: {{ replyProgress[task.task_id].sended }} 成功, {{ replyProgress[task.task_id].failed?.length || 0 }} 失败
+                </p>
               </div>
             </div>
           </div>
@@ -201,7 +293,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { xhsApi } from '../api/xhs'
 import { useExportStore } from '../stores/export'
@@ -225,6 +317,9 @@ const displayedCount = 5
 const showReplyModal = ref(false)
 const replyTarget = ref(null)
 const replyContent = ref('')
+const replyData = ref({})
+const replyProgress = ref({})
+let replyInterval = null
 
 const displayedComments = computed(() => {
   return comments.value.slice(0, displayedCount)
@@ -289,6 +384,7 @@ const fetchComments = async () => {
       note.value = res.data.note
       comments.value = res.data.comments
       totalComments.value = res.data.total_comments
+      await exportStore.fetchTasks()
     } else {
       error.value = res.error || '获取评论失败'
     }
@@ -338,7 +434,179 @@ const submitReply = async () => {
   }
 }
 
+const formatTime = (isoString) => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const classificationPollInterval = ref(null)
+
+const handleClassify = async (task) => {
+  if (classificationPollInterval.value) {
+    clearInterval(classificationPollInterval.value)
+  }
+  try {
+    await xhsApi.startClassify(task.task_id)
+    pollClassificationStatus(task.task_id)
+  } catch (e) {
+    console.error('分类失败', e)
+  }
+}
+
+const pollClassificationStatus = async (taskId) => {
+  let attempts = 0
+  classificationPollInterval.value = setInterval(async () => {
+    attempts++
+    if (attempts >= 150) {
+      clearInterval(classificationPollInterval.value)
+      return
+    }
+    try {
+      const res = await xhsApi.getClassificationStatus(taskId)
+      const data = res.data.data
+      if (data.classification_status === 'completed' || data.classification_status === 'failed') {
+        clearInterval(classificationPollInterval.value)
+        await exportStore.fetchTasks()
+      }
+    } catch (e) {
+      console.error('获取分类状态失败', e)
+    }
+  }, 2000)
+}
+
+const downloadClassified = async (task) => {
+  try {
+    const res = await xhsApi.downloadClassifiedFile(task.task_id)
+    const url = window.URL.createObjectURL(new Blob([res]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `classified_${task.task_id.slice(0, 8)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('下载失败', e)
+  }
+}
+
 onMounted(() => {
   checkChromeStatus()
+  exportStore.fetchTasks()
+  exportStore.startPolling()
 })
+
+onUnmounted(() => {
+  if (replyInterval) clearInterval(replyInterval)
+  exportStore.stopPolling()
+})
+
+const downloadTask = async (taskId) => {
+  try {
+    const response = await fetch(`/api/export-download/${taskId}`)
+    const contentType = response.headers.get('content-type') || ''
+    if (response.ok && contentType.includes('text/csv')) {
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = `comments_${taskId.slice(0, 8)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(downloadUrl)
+    }
+  } catch (e) {
+    console.error('下载失败', e)
+  }
+}
+
+const openUrl = (url) => {
+  window.open(url, '_blank')
+}
+
+const handleCsvUpload = async (event, task) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const res = await fetch('/api/reply-from-csv', {
+      method: 'POST',
+      body: formData,
+    })
+    const json = await res.json()
+    if (json.success) {
+      replyData.value = { ...replyData.value, [task.task_id]: json.data }
+    } else {
+      alert(json.error || '上传失败')
+    }
+  } catch (e) {
+    alert(`上传失败: ${e.message}`)
+  }
+  event.target.value = ''
+}
+
+const confirmReply = async (task) => {
+  const data = replyData.value[task.task_id]
+  if (!data || data.to_reply === 0) return
+
+  try {
+    await fetch('/api/reply-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: task.url,
+        comments: data.comments,
+      }),
+    })
+    replyProgress.value = {
+      ...replyProgress.value,
+      [task.task_id]: { running: true, current: 0, total: data.to_reply, sended: 0, completed: false },
+    }
+    pollReplyStatus(task.task_id)
+  } catch (e) {
+    alert(`发送失败: ${e.message}`)
+  }
+}
+
+const pollReplyStatus = (taskId) => {
+  if (replyInterval) clearInterval(replyInterval)
+
+  replyInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/reply-status')
+      const json = await res.json()
+      if (json.success) {
+        const status = json.data
+        replyProgress.value = {
+          ...replyProgress.value,
+          [taskId]: {
+            current: status.current,
+            total: status.total,
+            sended: status.sended,
+            failed: status.failed,
+            running: status.running,
+            completed: !status.running,
+          },
+        }
+        if (!status.running) {
+          clearInterval(replyInterval)
+          replyInterval = null
+        }
+      }
+    } catch (e) {
+      console.error('查询状态失败', e)
+    }
+  }, 2000)
+}
 </script>

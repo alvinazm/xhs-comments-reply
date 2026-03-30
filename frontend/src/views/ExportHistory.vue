@@ -53,7 +53,7 @@
                   @click="downloadTask(task.task_id)"
                   class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
                 >
-                  下载
+                  下载CSV
                 </button>
                 <button
                   v-if="task.classification_status === 'none'"

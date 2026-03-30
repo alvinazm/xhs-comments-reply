@@ -282,16 +282,29 @@ def execute_classify_task(
 
         client = OpenAI(api_key=api_key, base_url=base_url, timeout=60)
 
+        from config import Config
+
+        whitelist_user_ids = Config.WHITELIST_USER_IDS or []
+        whitelist_reason = Config.WHITELIST_REASON or "白名单用户"
+
         comments = []
         original_rows = []
         with open(file_path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader):
                 content = row.get("评论内容", "")
+                user_id = row.get("评论人ID", "")
                 if content:
                     original_rows.append(row)
                     text = str(content)[:500]
-                    comments.append({"comment_id": f"c{i}", "text": text})
+                    comments.append(
+                        {
+                            "comment_id": f"c{i}",
+                            "text": text,
+                            "user_id": user_id,
+                            "is_whitelist": user_id in whitelist_user_ids,
+                        }
+                    )
 
         log_info(f"[{task_id}] 读取CSV完成, 评论数: {len(comments)}")
 
@@ -329,16 +342,26 @@ def execute_classify_task(
         classified = []
         for i, comment in enumerate(comments):
             cid = comment["comment_id"]
-            cls = class_map.get(
-                cid,
-                {
-                    "category": "unclassified",
-                    "confidence": 0,
-                    "action": "flag_review",
-                    "reason": "Not classified",
+
+            if comment.get("is_whitelist"):
+                cls = {
+                    "category": "whitelist",
+                    "confidence": 100,
+                    "action": "ignore",
+                    "reason": whitelist_reason,
                     "generated_reply": "",
-                },
-            )
+                }
+            else:
+                cls = class_map.get(
+                    cid,
+                    {
+                        "category": "unclassified",
+                        "confidence": 0,
+                        "action": "flag_review",
+                        "reason": "Not classified",
+                        "generated_reply": "",
+                    },
+                )
             classified.append(
                 {
                     **comment,

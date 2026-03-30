@@ -34,6 +34,8 @@ class ExportTask:
     classification_summary: Optional[dict] = field(default_factory=dict)
     classified_file_path: Optional[str] = None
     classification_error: str = ""
+    note_title: str = ""
+    comment_count: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -54,6 +56,8 @@ class ExportTask:
             "classification_progress": self.classification_progress,
             "classification_summary": self.classification_summary,
             "classified_file_path": self.classified_file_path,
+            "note_title": self.note_title,
+            "comment_count": self.comment_count,
         }
 
 

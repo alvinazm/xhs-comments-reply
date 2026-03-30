@@ -1,3 +1,8 @@
 # 配置AI评论分类提示词路径
 prompt:
   classifier: "backend/prompts/classifier.md"
+
+# 评论用户ID白名单（这些用户的评论将在AI分类时被忽略）
+whitelist:
+  user_ids: []
+  reason: "白名单用户"

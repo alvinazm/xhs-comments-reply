@@ -6,6 +6,7 @@ import logging
 import sys
 import os
 import time
+from datetime import datetime
 
 import requests
 from flask import Blueprint, jsonify, request, Response, send_file
@@ -102,13 +103,86 @@ def get_comments():
         "[开始] 时间=%s, url=%s, max_comments=%d", start_datetime, url, max_comments
     )
 
+    from ..services.export_task_manager import task_manager
+
+    task = task_manager.create_task(url, max_comments)
+    task.status = "running"
+    task.progress = 0
+    task.note_title = ""
+    task.comment_count = 0
+    task.total_fetched = 0
+
     try:
         req = CommentRequest(url=url, max_comments=max_comments)
         service = XiaohongshuService()
 
-        note, comments, total = service.get_note_and_initial_comments(
-            req.url, initial_count=5
+        task.note_title = "获取中..."
+        task_manager.update_task(task.task_id, task)
+
+        note, comments, total = service.get_comments(req.url, req.max_comments)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "评论人用户名",
+                "评论人ID",
+                "评论内容",
+                "评论ID",
+                "评论时间",
+                "所在地址",
+                "点赞量",
+            ]
         )
+
+        for c in comments:
+            writer.writerow(
+                [
+                    c.user_nickname,
+                    c.user_id,
+                    c.content,
+                    c.id,
+                    time.strftime(
+                        "%Y-%m-%d %H:%M:%S", time.localtime(int(c.create_time))
+                    )
+                    if c.create_time
+                    else "",
+                    c.ip_location,
+                    c.like_count,
+                ]
+            )
+
+        output.seek(0)
+
+        import uuid
+        from pathlib import Path
+
+        project_root = Path(__file__).parent.parent.parent.parent
+        csv_dir = project_root / "download"
+        csv_dir.mkdir(exist_ok=True)
+
+        session_id = str(uuid.uuid4())
+        csv_path = csv_dir / f"xhs_comments_{session_id}.csv"
+        with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(output.getvalue())
+
+        if len(comments) > 0:
+            task.status = "completed"
+            task.progress = 100
+            task.total_fetched = len(comments)
+            task.file_path = str(csv_path)
+            task.completed_at = datetime.now()
+            task.note_title = note.title
+            task.comment_count = (
+                int(note.comment_count) if note.comment_count else total
+            )
+        else:
+            if os.path.exists(csv_path):
+                os.remove(csv_path)
+            task.status = "failed"
+            task.error_message = "未获取到评论"
+
+        task_manager.update_task(task.task_id, task)
 
         def format_comment(c):
             d = c.to_dict()
@@ -123,7 +197,7 @@ def get_comments():
         end_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
         get_comments_logger.info(
             "[完成] 时间=%s, 耗时=%.2f秒, url=%s, 实际获取=%d, "
-            "total=%d, 笔记标题=%s, 作者=%s, IP属地=%s, 点赞=%s, 评论数=%s",
+            "total=%d, 笔记标题=%s, 作者=%s, IP属地=%s, 点赞=%s, 评论数=%s, CSV文件=%s",
             end_datetime,
             elapsed,
             url,
@@ -134,6 +208,7 @@ def get_comments():
             note.ip_location,
             note.liked_count,
             note.comment_count,
+            csv_path.name,
         )
 
         return jsonify(

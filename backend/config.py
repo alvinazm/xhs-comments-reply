@@ -57,3 +57,5 @@ class Config:
     MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
 
     PROMPT = _yaml_config.get("prompt", {})
+    WHITELIST_USER_IDS = _yaml_config.get("whitelist", {}).get("user_ids", [])
+    WHITELIST_REASON = _yaml_config.get("whitelist", {}).get("reason", "白名单用户")
