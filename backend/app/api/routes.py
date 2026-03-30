@@ -398,36 +398,52 @@ def export_status(task_id: str):
 
 @comment_bp.route("/export-tasks", methods=["GET"])
 def export_tasks():
-    """获取所有导出任务。"""
+    """获取导出任务列表。"""
     from ..services.export_task_manager import task_manager
 
-    tasks = task_manager.get_all_tasks()
+    tasks = task_manager.list_tasks()
     return jsonify(
         ApiResponse(
             success=True,
-            data=[
-                {
-                    "task_id": task.task_id,
-                    "url": task.url,
-                    "max_comments": task.max_comments,
-                    "status": task.status,
-                    "progress": task.progress,
-                    "total_fetched": task.total_fetched,
-                    "error_message": task.error_message,
-                    "created_at": task.created_at.isoformat(),
-                    "updated_at": task.updated_at.isoformat(),
-                    "completed_at": task.completed_at.isoformat()
-                    if task.completed_at
-                    else None,
-                    "classification_status": task.classification_status or "none",
-                    "classification_progress": task.classification_progress,
-                    "classification_summary": task.classification_summary,
-                    "classified_file_path": task.classified_file_path,
-                }
-                for task in tasks
-            ],
+            data=[task.to_dict() for task in tasks],
         ).to_dict()
     )
+
+
+@comment_bp.route("/retry-task", methods=["POST"])
+def retry_task():
+    """重试导出任务。"""
+    from ..services.export_task_manager import task_manager
+
+    data = request.get_json()
+    task_id = data.get("task_id", "")
+
+    if not task_id:
+        return jsonify(ApiResponse(success=False, error="缺少 task_id").to_dict()), 400
+
+    task = task_manager.get_task(task_id)
+    if not task:
+        return jsonify(ApiResponse(success=False, error="任务不存在").to_dict()), 404
+
+    if task.total_fetched > 0:
+        return jsonify(ApiResponse(success=False, error="任务已有数据").to_dict()), 400
+
+    try:
+        task_manager.start_background_export(task.task_id)
+        return jsonify(
+            ApiResponse(
+                success=True,
+                data={
+                    "task_id": task.task_id,
+                    "status": task.status,
+                },
+            ).to_dict()
+        )
+    except Exception as e:
+        logger.error("重试导出任务失败: %s", e)
+        return jsonify(
+            ApiResponse(success=False, error=f"重试失败: {e!s}").to_dict()
+        ), 500
 
 
 @comment_bp.route("/export-download/<task_id>", methods=["GET"])

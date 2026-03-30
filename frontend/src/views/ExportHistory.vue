@@ -48,7 +48,7 @@
                 </p>
               </div>
 
-              <div v-if="task.status === 'completed'" class="ml-4 flex gap-2">
+              <div v-if="task.status === 'completed' && task.total_fetched > 0" class="ml-4 flex gap-2">
                 <button
                   @click="downloadTask(task.task_id)"
                   class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
@@ -68,6 +68,15 @@
                   class="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm"
                 >
                   下载分类CSV
+                </button>
+              </div>
+
+              <div v-if="task.status === 'completed' && task.total_fetched === 0" class="ml-4">
+                <button
+                  @click="retryTask(task)"
+                  class="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 text-sm"
+                >
+                  重试
                 </button>
               </div>
             </div>
@@ -242,6 +251,20 @@ const handleClassify = async (task) => {
     pollClassificationStatus(task.task_id)
   } catch (e) {
     console.error('分类失败', e)
+  }
+}
+
+const retryTask = async (task) => {
+  try {
+    await fetch('/api/retry-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: task.task_id }),
+    })
+    exportStore.fetchTasks()
+    exportStore.startPolling()
+  } catch (e) {
+    console.error('重试失败', e)
   }
 }
 
