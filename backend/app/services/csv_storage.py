@@ -35,6 +35,8 @@ def save_comments_to_csv(comments: List) -> str:
         writer.writerow(CSV_HEADERS)
 
         for c in comments:
+            if not c.content or not c.content.strip():
+                continue
             writer.writerow(
                 [
                     c.user_nickname,

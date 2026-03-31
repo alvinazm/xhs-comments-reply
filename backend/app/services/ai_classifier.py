@@ -386,7 +386,7 @@ def execute_classify_task(
             writer.writeheader()
             for i, c in enumerate(classified):
                 row = dict(original_rows[i])
-                row["classification"] = c.get("classification", "")
+                row["classification"] = c.get("category", "")
                 row["confidence"] = c.get("confidence", "")
                 row["action"] = c.get("action", "")
                 row["reason"] = c.get("reason", "")
@@ -395,7 +395,7 @@ def execute_classify_task(
 
         counts = {}
         for c in classified:
-            cat = c.get("classification", "unknown")
+            cat = c.get("category", "unknown")
             counts[cat] = counts.get(cat, 0) + 1
 
         log_info(f"[{task_id}] 分类完成! 输出文件: {output_filename}")

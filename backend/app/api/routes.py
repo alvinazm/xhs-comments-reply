@@ -136,6 +136,8 @@ def get_comments():
         )
 
         for c in comments:
+            if not c.content or not c.content.strip():
+                continue
             writer.writerow(
                 [
                     c.user_nickname,
@@ -348,6 +350,8 @@ def download_comments_csv():
         )
 
         for c in comments:
+            if not c.content or not c.content.strip():
+                continue
             writer.writerow(
                 [
                     c.user_nickname,
@@ -731,6 +735,55 @@ def reply_from_csv():
 
 
 _reply_sender = None
+
+
+@comment_bp.route("/reply-direct", methods=["POST"])
+def reply_direct():
+    """直接使用AI分类后的CSV文件发送回复"""
+    global _reply_sender
+
+    from ..services.reply_sender import ReplySender
+    from ..services.export_task_manager import task_manager
+    import os
+    import csv
+
+    data = request.get_json()
+    task_id = data.get("task_id", "")
+
+    task = task_manager.get_task(task_id)
+    if not task or not task.classified_file_path:
+        return jsonify(ApiResponse(success=False, error="没有分类文件").to_dict()), 400
+
+    classified_file = task.classified_file_path
+    if not os.path.exists(classified_file):
+        return jsonify(
+            ApiResponse(success=False, error="分类文件不存在").to_dict()
+        ), 400
+
+    comments_to_reply = []
+    with open(classified_file, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            action = row.get("action", "")
+            comment_id = row.get("评论ID", row.get("comment_id", ""))
+            reply_content = row.get("generated_reply", "").strip()
+            if action == "回复" and reply_content and comment_id:
+                comments_to_reply.append(
+                    {"comment_id": comment_id, "reply_text": reply_content}
+                )
+
+    if not comments_to_reply:
+        return jsonify(
+            ApiResponse(success=False, error="没有需要回复的评论").to_dict()
+        ), 400
+
+    service = XiaohongshuService()
+    _reply_sender = ReplySender(service)
+    _reply_sender.start(comments_to_reply, task.url)
+
+    return jsonify(
+        ApiResponse(success=True, data={"to_reply": len(comments_to_reply)}).to_dict()
+    )
 
 
 @comment_bp.route("/reply-confirm", methods=["POST"])

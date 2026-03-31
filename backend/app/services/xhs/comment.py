@@ -30,6 +30,7 @@ def reply_comment(
     content: str,
     comment_id: str = "",
     user_id: str = "",
+    reuse_page: bool = False,
 ) -> None:
     """回复指定评论。
 
@@ -40,6 +41,7 @@ def reply_comment(
         content: 回复内容。
         comment_id: 评论 ID（优先使用）。
         user_id: 用户 ID（备选）。
+        reuse_page: 是否复用页面（不重新导航）。
 
     Raises:
         RuntimeError: 回复失败。
@@ -48,15 +50,25 @@ def reply_comment(
         raise ValueError("comment_id 和 user_id 至少提供一个")
 
     url = make_feed_detail_url(feed_id, xsec_token)
-    logger.info("打开 feed 详情页进行回复: %s", url)
 
-    page.navigate(url)
-    page.wait_for_load()
-    page.wait_dom_stable()
-    sleep_random(800, 1500)
+    if not reuse_page:
+        logger.info("打开 feed 详情页进行回复: %s", url)
+        page.navigate(url)
+        page.wait_for_load()
+        page.wait_dom_stable()
+        sleep_random(800, 1500)
 
-    _check_page_accessible(page)
-    sleep_random(1500, 2500)
+        _check_page_accessible(page)
+        sleep_random(1500, 2500)
+    elif not hasattr(page, "_reply_page_loaded"):
+        logger.info("首次打开 feed 详情页进行回复: %s", url)
+        page.navigate(url)
+        page.wait_for_load()
+        page.wait_dom_stable()
+        sleep_random(800, 1500)
+        _check_page_accessible(page)
+        sleep_random(1500, 2500)
+        page._reply_page_loaded = True
 
     comment_found = _find_and_scroll_to_comment(page, comment_id, user_id)
     if not comment_found:

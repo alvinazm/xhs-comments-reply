@@ -196,27 +196,69 @@
 
               <div class="mt-3 flex gap-2 flex-wrap">
                 <span class="text-sm text-gray-500">回复:</span>
-                <label class="cursor-pointer bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm">
-                  上传CSV
-                  <input
-                    type="file"
-                    accept=".csv"
-                    class="hidden"
-                    @change="(e) => handleCsvUpload(e, task)"
-                  />
-                </label>
+                <div v-if="replyProgress[task.task_id]?.completed" class="flex items-center gap-2">
+                  <span class="text-sm text-green-600 bg-green-50 px-3 py-1 rounded">
+                    已完成
+                  </span>
+                  <button
+                    @click="() => resetReply(task.task_id)"
+                    class="text-blue-500 hover:text-blue-700 text-sm"
+                  >
+                    继续回复
+                  </button>
+                </div>
+                <div v-else class="flex gap-2">
+                  <label 
+                    v-if="!replyData[task.task_id]?.fileName"
+                    class="cursor-pointer bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 text-sm"
+                  >
+                    上传CSV回复
+                    <input
+                      type="file"
+                      accept=".csv"
+                      class="hidden"
+                      @change="(e) => handleCsvUpload(e, task)"
+                    />
+                  </label>
+                  <div v-if="replyData[task.task_id]?.fileName" class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded">
+                      {{ replyData[task.task_id].fileName }}
+                    </span>
+                    <button
+                      @click="() => removeUploadedFile(task.task_id)"
+                      class="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      删除
+                    </button>
+                  </div>
+                  <button
+                    v-if="task.classification_status === 'completed'"
+                    @click="() => directReply(task)"
+                    class="bg-purple-500 text-white py-1 px-3 rounded-lg hover:bg-purple-600 text-sm"
+                  >
+                    直接回复
+                  </button>
+                </div>
               </div>
 
               <div v-if="replyData[task.task_id]?.to_reply > 0" class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                <p class="text-sm text-green-700 mb-2">
-                  确认发送 {{ replyData[task.task_id].to_reply }} 条回复？
-                </p>
-                <button
-                  @click="() => confirmReply(task)"
-                  class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm"
-                >
-                  确认发送
-                </button>
+                <div v-if="replyProgress[task.task_id]?.completed">
+                  <p class="text-sm text-green-700">
+                    成功回复 {{ replyProgress[task.task_id].sended }} 条
+                  </p>
+                </div>
+                <div v-else>
+                  <p class="text-sm text-green-700 mb-2">
+                    确认发送 {{ replyData[task.task_id].to_reply }} 条回复？
+                  </p>
+                  <button
+                    @click="() => confirmReply(task)"
+                    :disabled="replyProgress[task.task_id]?.running"
+                    class="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 text-sm disabled:opacity-50"
+                  >
+                    确认发送
+                  </button>
+                </div>
               </div>
 
               <div v-if="replyProgress[task.task_id]?.running" class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -229,12 +271,6 @@
                     :style="{ width: (replyProgress[task.task_id].current / replyProgress[task.task_id].total * 100) + '%' }"
                   ></div>
                 </div>
-              </div>
-
-              <div v-if="replyProgress[task.task_id]?.completed" class="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <p class="text-sm text-gray-700">
-                  发送完成: {{ replyProgress[task.task_id].sended }} 成功, {{ replyProgress[task.task_id].failed?.length || 0 }} 失败
-                </p>
               </div>
             </div>
           </div>
@@ -445,6 +481,7 @@ const handleClassify = async (task) => {
   }
   try {
     await xhsApi.startClassify(task.task_id)
+    await exportStore.fetchTasks()
     pollClassificationStatus(task.task_id)
   } catch (e) {
     console.error('分类失败', e)
@@ -537,7 +574,7 @@ const handleCsvUpload = async (event, task) => {
     })
     const json = await res.json()
     if (json.success) {
-      replyData.value = { ...replyData.value, [task.task_id]: json.data }
+      replyData.value = { ...replyData.value, [task.task_id]: { ...json.data, fileName: file.name } }
     } else {
       alert(json.error || '上传失败')
     }
@@ -545,6 +582,12 @@ const handleCsvUpload = async (event, task) => {
     alert(`上传失败: ${e.message}`)
   }
   event.target.value = ''
+}
+
+const removeUploadedFile = (taskId) => {
+  const newReplyData = { ...replyData.value }
+  delete newReplyData[taskId]
+  replyData.value = newReplyData
 }
 
 const confirmReply = async (task) => {
@@ -567,6 +610,32 @@ const confirmReply = async (task) => {
     pollReplyStatus(task.task_id)
   } catch (e) {
     alert(`发送失败: ${e.message}`)
+  }
+}
+
+const directReply = async (task) => {
+  try {
+    const res = await fetch('/api/reply-direct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: task.task_id }),
+    })
+    const json = await res.json()
+    if (json.success) {
+      replyData.value = {
+        ...replyData.value,
+        [task.task_id]: { to_reply: json.data.to_reply, fileName: 'AI分类回复' },
+      }
+      replyProgress.value = {
+        ...replyProgress.value,
+        [task.task_id]: { running: true, current: 0, total: json.data.to_reply, sended: 0, completed: false },
+      }
+      pollReplyStatus(task.task_id)
+    } else {
+      alert(json.error || '直接回复失败')
+    }
+  } catch (e) {
+    alert(`直接回复失败: ${e.message}`)
   }
 }
 
@@ -599,5 +668,11 @@ const pollReplyStatus = (taskId) => {
       console.error('查询状态失败', e)
     }
   }, 2000)
+}
+
+const resetReply = (taskId) => {
+  const newProgress = { ...replyProgress.value }
+  delete newProgress[taskId]
+  replyProgress.value = newProgress
 }
 </script>

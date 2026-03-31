@@ -293,7 +293,13 @@ class XiaohongshuService:
                 logger.info(f"[reply_batch] 调用 reply_comment, page={page}")
                 try:
                     result = reply_comment(
-                        page, feed_id, xsec_token, content, comment_id, user_id
+                        page,
+                        feed_id,
+                        xsec_token,
+                        content,
+                        comment_id,
+                        user_id,
+                        reuse_page=True,
                     )
                     logger.info(f"[reply_batch] reply_comment 返回, result={result}")
                     success_count += 1
