@@ -200,12 +200,6 @@
                   <span class="text-sm text-green-600 bg-green-50 px-3 py-1 rounded">
                     已完成
                   </span>
-                  <button
-                    @click="() => resetReply(task.task_id)"
-                    class="text-blue-500 hover:text-blue-700 text-sm"
-                  >
-                    继续回复
-                  </button>
                 </div>
                 <div v-else class="flex gap-2">
                   <label 
@@ -668,11 +662,5 @@ const pollReplyStatus = (taskId) => {
       console.error('查询状态失败', e)
     }
   }, 2000)
-}
-
-const resetReply = (taskId) => {
-  const newProgress = { ...replyProgress.value }
-  delete newProgress[taskId]
-  replyProgress.value = newProgress
 }
 </script>
