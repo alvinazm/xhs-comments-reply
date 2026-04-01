@@ -1,4 +1,7 @@
 #!/bin/bash
+echo "=== 安装依赖 ==="
+
+pip install -r requirements.txt
 
 echo "=== 小红书评论获取系统启动 ==="
 

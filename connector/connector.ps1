@@ -1,4 +1,5 @@
-$WS_URL = "ws://47.94.111.53:8765"
+# 本地测试用 localhost，生产环境用实际服务器IP
+$WS_URL = "ws://localhost:8765"
 $CLIENT_ID = [guid]::NewGuid().ToString()
 $CHROME_PORT = 9292
 

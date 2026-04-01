@@ -20,7 +20,7 @@
       <div v-if="!clientConnected" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
         <p class="text-yellow-800 mb-2">请先运行连接脚本：</p>
         <div class="bg-gray-800 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
-          <pre class="whitespace-pre-wrap">curl -s 47.94.111.53:3000/static/connector.sh | bash</pre>
+          <pre class="whitespace-pre-wrap">curl -s localhost:3000/static/connector.sh | bash</pre>
         </div>
         <button @click="checkClientStatus" class="mt-2 text-sm text-blue-600 hover:underline">
           点击检测连接状态
