@@ -3,11 +3,19 @@
 import asyncio
 import json
 import logging
+import sys
+import os
 from typing import Dict
 import websockets
 from websockets.server import WebSocketServerProtocol
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from config import Config
+
 logger = logging.getLogger(__name__)
+
+WS_SERVER_HOST = Config.WS_SERVER_HOST
+WS_SERVER_PORT = Config.WS_SERVER_PORT
 
 clients: Dict[str, WebSocketServerProtocol] = {}
 
@@ -102,7 +110,7 @@ def is_any_client_connected() -> bool:
     return len(clients) > 0
 
 
-async def start_ws_server(host="127.0.0.1", port=8765):
+async def start_ws_server(host=WS_SERVER_HOST, port=WS_SERVER_PORT):
     """启动 WebSocket 服务器"""
     logger.info(f"正在启动 WebSocket 服务器: {host}:{port}")
     async with websockets.serve(handle_client, host, port):

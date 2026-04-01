@@ -1,14 +1,29 @@
 #!/bin/bash
 
-# 本地测试用 localhost，生产环境用实际服务器IP
-WS_URL="ws://localhost:8765"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+CONFIG_FILE="$PROJECT_DIR/config.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+    WS_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('host', 'localhost'))" 2>/dev/null)
+    WS_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('port', 8765))" 2>/dev/null)
+    CHROME_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('host', 'localhost'))" 2>/dev/null)
+    CHROME_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('port', 9292))" 2>/dev/null)
+else
+    WS_HOST="localhost"
+    WS_PORT=8765
+    CHROME_HOST="localhost"
+    CHROME_PORT=9292
+fi
+
+WS_URL="ws://${WS_HOST}:${WS_PORT}"
 CLIENT_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)
-CHROME_PORT=9292
 
 echo "正在启动小红书连接器..."
 
 check_chrome() {
-    curl -s "http://localhost:$CHROME_PORT/json/version" >/dev/null 2>&1
+    curl -s "http://${CHROME_HOST}:${CHROME_PORT}/json/version" >/dev/null 2>&1
 }
 
 start_chrome() {
@@ -45,6 +60,7 @@ from websockets import connect
 
 WS_URL = "$WS_URL"
 CLIENT_ID = "$CLIENT_ID"
+CHROME_HOST = "$CHROME_HOST"
 CHROME_PORT = $CHROME_PORT
 
 async def execute_cdp_command(cmd: str, params: dict):
@@ -52,14 +68,14 @@ async def execute_cdp_command(cmd: str, params: dict):
     try:
         if cmd == "Page.navigate":
             url = params.get("url")
-            resp = requests.post(f"http://localhost:{CHROME_PORT}/json/navigate", json={"url": url})
+            resp = requests.post(f"http://{CHROME_HOST}:{CHROME_PORT}/json/navigate", json={"url": url})
             return {"type": "response", "command": cmd, "success": resp.status_code == 200, "result": resp.json()}
         elif cmd == "Runtime.evaluate":
             expression = params.get("expression", "")
-            resp = requests.post(f"http://localhost:{CHROME_PORT}/json/evaluate", json={"expression": expression})
+            resp = requests.post(f"http://{CHROME_HOST}:{CHROME_PORT}/json/evaluate", json={"expression": expression})
             return {"type": "response", "command": cmd, "success": resp.status_code == 200, "result": resp.json()}
         elif cmd == "Page.reload":
-            resp = requests.post(f"http://localhost:{CHROME_PORT}/json/reload", json={})
+            resp = requests.post(f"http://{CHROME_HOST}:{CHROME_PORT}/json/reload", json={})
             return {"type": "response", "command": cmd, "success": resp.status_code == 200}
         else:
             return {"type": "response", "command": cmd, "success": False, "error": f"Unknown command: {cmd}"}
