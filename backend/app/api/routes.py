@@ -65,15 +65,40 @@ def start_chrome():
 
 @comment_bp.route("/check-chrome", methods=["GET"])
 def check_chrome():
-    """检查 Chrome 调试模式状态。"""
+    """检查 Chrome 调试模式状态（支持客户端和服务端两种模式）"""
+    from ..services.ws_manager import is_any_client_connected
+
+    if is_any_client_connected():
+        from ..services.ws_manager import get_client_count
+
+        return jsonify(
+            ApiResponse(
+                success=True,
+                data={
+                    "running": True,
+                    "source": "client",
+                    "client_count": get_client_count(),
+                },
+            ).to_dict()
+        )
+
     try:
         resp = requests.get(
             f"http://{Config.CHROME_HOST}:{Config.CHROME_PORT}/json/version", timeout=2
         )
         running = resp.status_code == 200
-        return jsonify(ApiResponse(success=True, data={"running": running}).to_dict())
+        return jsonify(
+            ApiResponse(
+                success=True,
+                data={"running": running, "source": "server" if running else "none"},
+            ).to_dict()
+        )
     except Exception:
-        return jsonify(ApiResponse(success=True, data={"running": False}).to_dict())
+        return jsonify(
+            ApiResponse(
+                success=True, data={"running": False, "source": "none"}
+            ).to_dict()
+        )
 
 
 @comment_bp.route("/parse-url", methods=["POST"])

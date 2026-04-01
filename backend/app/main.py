@@ -1,12 +1,14 @@
 """Flask 应用入口。"""
 
+import asyncio
 import logging
 import os
 import sys
 from pathlib import Path
+import threading
 
 from dotenv import load_dotenv
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -14,6 +16,7 @@ project_root = Path(__file__).parent.parent.parent
 load_dotenv(project_root / ".env")
 
 from .api import comment_bp
+from .services.ws_manager import start_ws_server
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,6 +61,21 @@ def create_app() -> Flask:
             return send_from_directory(static_dir, "index.html")
         return {"message": "XHS API Server", "status": "running"}
 
+    @app.route("/static/<path:filename>")
+    def serve_static(filename):
+        """服务 connector 目录下的脚本文件"""
+        connector_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "..", "connector"
+        )
+        return send_from_directory(connector_dir, filename)
+
+    @app.route("/api/client-status")
+    def client_status():
+        """获取客户端连接状态"""
+        from .services.ws_manager import is_any_client_connected
+
+        return jsonify({"connected": is_any_client_connected()})
+
     return app
 
 
@@ -76,6 +94,13 @@ if __name__ == "__main__":
 
     app = create_app()
     start_scheduler()
+
+    def run_ws():
+        asyncio.run(start_ws_server())
+
+    ws_thread = threading.Thread(target=run_ws, daemon=True)
+    ws_thread.start()
+
     app.run(
         host=Config.FLASK_HOST,
         port=Config.FLASK_PORT,
