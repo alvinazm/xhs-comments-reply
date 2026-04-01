@@ -61,8 +61,8 @@ def create_app() -> Flask:
             return send_from_directory(static_dir, "index.html")
         return {"message": "XHS API Server", "status": "running"}
 
-    @app.route("/static/<path:filename>")
-    def serve_static(filename):
+    @app.route("/connector/<path:filename>")
+    def serve_connector(filename):
         """服务 connector 目录下的脚本文件"""
         connector_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "..", "connector"

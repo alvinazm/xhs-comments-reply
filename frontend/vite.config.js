@@ -30,6 +30,10 @@ export default defineConfig({
       '/api': {
         target: `http://${backendHost}:${backendPort}`,
         changeOrigin: true
+      },
+      '/connector': {
+        target: `http://${backendHost}:${backendPort}`,
+        changeOrigin: true
       }
     }
   }
