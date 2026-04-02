@@ -43,6 +43,8 @@ cleanup_ports() {
     
     pkill -9 -f "chrome-debug" 2>/dev/null || true
     pkill -9 -f "app.main" 2>/dev/null || true
+    pkill -9 -f "vite" 2>/dev/null || true
+    pkill -9 -f "node.*dev" 2>/dev/null || true
     
     sleep 2
 }
@@ -72,6 +74,9 @@ start_frontend() {
     if [ ! -d "node_modules" ]; then
         echo -e "${YELLOW}安装前端依赖...${NC}"
         npm install
+    else
+        echo -e "${YELLOW}检查并修复前端依赖漏洞...${NC}"
+        npm audit fix --force 2>/dev/null || true
     fi
     
     npm run dev >> /tmp/frontend.log 2>&1 &
