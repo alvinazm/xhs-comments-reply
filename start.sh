@@ -26,7 +26,12 @@ NC='\033[0m'
 cleanup_ports() {
     echo -e "${YELLOW}清理占用端口...${NC}"
     
-    pkill -9 -f "start.sh" 2>/dev/null || true
+    CURRENT_PID=$$
+    for pid in $(pgrep -f "start.sh" 2>/dev/null); do
+        if [ "$pid" != "$CURRENT_PID" ]; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    done
     
     for port in $FRONTEND_PORT $BACKEND_PORT $CHROME_PORT 8765 5000; do
         pid=$(lsof -t -i :$port 2>/dev/null || true)
