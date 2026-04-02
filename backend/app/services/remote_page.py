@@ -28,8 +28,10 @@ class RemotePage:
 
     def _execute(self, command: str, params: dict = None, timeout: float = 30.0) -> Any:
         """执行 CDP 命令并返回结果。"""
-        result = execute_cdp_command(
-            self.client_id, command, params or {}, timeout=timeout
+        import asyncio
+
+        result = asyncio.run(
+            execute_cdp_command(self.client_id, command, params or {}, timeout=timeout)
         )
         if not result.get("success"):
             raise RuntimeError(f"CDP 命令失败: {result.get('error', 'unknown')}")
