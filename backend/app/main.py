@@ -92,6 +92,10 @@ def create_app() -> Flask:
 
         return jsonify(
             {
+                "server": {
+                    "host": Config.SERVER_HOST,
+                    "port": Config.SERVER_PORT,
+                },
                 "ws_server": {
                     "host": Config.WS_SERVER_HOST,
                     "port": Config.WS_SERVER_PORT,
