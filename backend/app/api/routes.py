@@ -882,3 +882,85 @@ def set_whitelist():
     if save_whitelist(user_ids):
         return jsonify(ApiResponse(success=True, message="白名单已保存").to_dict())
     return jsonify(ApiResponse(success=False, error="保存失败").to_dict()), 500
+
+
+@comment_bp.route("/upload-comments", methods=["POST"])
+def upload_comments():
+    """接收客户端上传的评论数据并保存为 CSV。"""
+    data = request.get_json()
+    url = data.get("url", "")
+    note_data = data.get("note", {})
+    comments = data.get("comments", [])
+    total = data.get("total", 0)
+
+    if not url or not note_data:
+        return jsonify(ApiResponse(success=False, error="缺少必要数据").to_dict()), 400
+
+    import uuid
+    from pathlib import Path
+    import io
+    import csv as csv_module
+
+    output = io.StringIO()
+    writer = csv_module.writer(output)
+    writer.writerow(
+        [
+            "评论人用户名",
+            "评论人ID",
+            "评论内容",
+            "评论ID",
+            "评论时间",
+            "所在地址",
+            "点赞量",
+        ]
+    )
+
+    for c in comments:
+        if not c.get("content") or not c.get("content").strip():
+            continue
+        writer.writerow(
+            [
+                c.get("user_nickname", ""),
+                c.get("user_id", ""),
+                c.get("content", ""),
+                c.get("id", ""),
+                c.get("create_time_str", ""),
+                c.get("ip_location", ""),
+                c.get("like_count", 0),
+            ]
+        )
+
+    output.seek(0)
+
+    project_root = Path(__file__).parent.parent.parent.parent
+    csv_dir = project_root / "download"
+    csv_dir.mkdir(exist_ok=True)
+
+    session_id = str(uuid.uuid4())
+    csv_path = csv_dir / f"xhs_comments_{session_id}.csv"
+    with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
+        f.write(output.getvalue())
+
+    from ..services.export_task_manager import task_manager
+
+    task = task_manager.create_task(url, len(comments))
+    task.status = "completed"
+    task.progress = 100
+    task.total_fetched = len(comments)
+    task.file_path = str(csv_path)
+    task.note_title = note_data.get("title", "")
+    task.comment_count = total
+    task.completed_at = datetime.now()
+
+    task_manager.update_task_full(task.task_id, task)
+
+    return jsonify(
+        ApiResponse(
+            success=True,
+            data={
+                "task_id": task.task_id,
+                "file_path": str(csv_path),
+                "comment_count": len(comments),
+            },
+        ).to_dict()
+    )

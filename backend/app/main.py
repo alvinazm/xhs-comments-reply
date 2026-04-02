@@ -79,7 +79,16 @@ def create_app() -> Flask:
     @app.route("/api/config")
     def get_config():
         """获取服务端配置供客户端使用"""
-        from ..config import Config
+        import sys
+        import os
+
+        sys.path.insert(
+            0,
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ),
+        )
+        from config import Config
 
         return jsonify(
             {

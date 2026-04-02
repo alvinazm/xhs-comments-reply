@@ -82,6 +82,7 @@ async def handle_client(websocket: WebSocketServerProtocol):
 
                 if msg_type == "response":
                     logger.debug(f"收到客户端响应: {data}")
+                    await handle_cdp_response(data)
 
                 elif msg_type == "ping":
                     await websocket.send(json.dumps({"type": "pong"}))
@@ -108,6 +109,74 @@ def get_client_count() -> int:
 def is_any_client_connected() -> bool:
     """是否有客户端在线"""
     return len(clients) > 0
+
+
+def get_first_client_id() -> str | None:
+    """获取第一个在线客户端的 ID"""
+    if clients:
+        return next(iter(clients.keys()))
+    return None
+
+
+pending_cdp_responses: Dict[str, asyncio.Future] = {}
+
+
+async def execute_cdp_command(
+    client_id: str,
+    command: str,
+    params: dict | None = None,
+    timeout: float = 60.0,
+) -> dict:
+    """通过 WebSocket 执行 CDP 命令并等待结果。
+
+    Args:
+        client_id: 客户端 ID
+        command: CDP 命令（如 Page.navigate, Runtime.evaluate）
+        params: 命令参数
+        timeout: 超时时间（秒）
+
+    Returns:
+        执行结果 dict，包含 success 字段
+    """
+    if client_id not in clients:
+        return {"success": False, "error": "客户端不在线"}
+
+    message_id = f"{client_id}_{command}_{asyncio.get_event_loop().time()}"
+    future = asyncio.Future()
+    pending_cdp_responses[message_id] = future
+
+    try:
+        await clients[client_id].send(
+            json.dumps(
+                {
+                    "type": "cdp",
+                    "message_id": message_id,
+                    "command": command,
+                    "params": params or {},
+                }
+            )
+        )
+
+        result = await asyncio.wait_for(future, timeout=timeout)
+        return result
+
+    except asyncio.TimeoutError:
+        logger.error(f"CDP 命令超时: {command}")
+        return {"success": False, "error": f"命令执行超时: {command}"}
+    except Exception as e:
+        logger.error(f"CDP 命令执行失败: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        pending_cdp_responses.pop(message_id, None)
+
+
+async def handle_cdp_response(data: dict):
+    """处理客户端返回的 CDP 执行结果"""
+    message_id = data.get("message_id")
+    if message_id and message_id in pending_cdp_responses:
+        future = pending_cdp_responses[message_id]
+        if not future.done():
+            future.set_result(data)
 
 
 async def start_ws_server(host=WS_SERVER_HOST, port=WS_SERVER_PORT):

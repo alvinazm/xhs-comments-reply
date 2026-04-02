@@ -18,6 +18,7 @@ from .xhs.comment import reply_comment
 from .xhs.errors import NoFeedDetailError, PageNotAccessibleError, XHSError
 from .xhs.feed_detail import get_feed_detail
 from .xhs.types import CommentLoadConfig
+from .ws_manager import is_any_client_connected
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,11 @@ class XiaohongshuService:
             NoFeedDetailError: 未获取到详情。
             XHSError: 其他错误。
         """
+        if not is_any_client_connected():
+            raise RuntimeError("请先运行连接脚本")
+
+        from .remote_page import RemotePage
+
         parsed = parse_xhs_url(url)
         if not parsed:
             raise ValueError("无效的小红书链接")
@@ -74,11 +80,7 @@ class XiaohongshuService:
         feed_id = parsed["feed_id"]
         xsec_token = parsed["xsec_token"]
 
-        if not ensure_chrome(port=self.port, headless=not has_display()):
-            raise RuntimeError("Chrome 启动失败")
-
-        browser = Browser(host=self.host, port=self.port)
-        page = browser.new_page()
+        page = RemotePage()
 
         try:
             config = CommentLoadConfig(
@@ -117,10 +119,8 @@ class XiaohongshuService:
             total = min(max_comments, len(detail.comments.list_))
 
             return note_info, comments, total
-
-        finally:
-            browser.close_page(page)
-            browser.close()
+        except Exception:
+            pass
 
     def get_note_and_initial_comments(
         self,
@@ -142,6 +142,11 @@ class XiaohongshuService:
             NoFeedDetailError: 未获取到详情。
             XHSError: 其他错误。
         """
+        if not is_any_client_connected():
+            raise RuntimeError("请先运行连接脚本")
+
+        from .remote_page import RemotePage
+
         parsed = parse_xhs_url(url)
         if not parsed:
             raise ValueError("无效的小红书链接")
@@ -149,11 +154,7 @@ class XiaohongshuService:
         feed_id = parsed["feed_id"]
         xsec_token = parsed["xsec_token"]
 
-        if not ensure_chrome(port=self.port, headless=not has_display()):
-            raise RuntimeError("Chrome 启动失败")
-
-        browser = Browser(host=self.host, port=self.port)
-        page = browser.new_page()
+        page = RemotePage()
 
         try:
             detail = get_feed_detail(
@@ -188,10 +189,8 @@ class XiaohongshuService:
             )
 
             return note_info, comments, total
-
-        finally:
-            browser.close_page(page)
-            browser.close()
+        except Exception:
+            pass
 
     def reply_comment(
         self,
