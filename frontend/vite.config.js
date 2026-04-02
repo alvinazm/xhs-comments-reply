@@ -36,6 +36,11 @@ export default defineConfig({
       '/connector': {
         target: `http://${backendHost}:${backendPort}`,
         changeOrigin: true
+      },
+      '/json/version': {
+        target: `http://127.0.0.1:9292`,
+        changeOrigin: true,
+        ws: true
       }
     }
   },

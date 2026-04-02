@@ -430,28 +430,50 @@ const startChrome = async () => {
   chromeError.value = ''
 
   try {
-    const res = await xhsApi.startChrome()
-    if (res.success) {
-      chromeStarted.value = true
-    } else {
-      chromeError.value = res.error || '启动 Chrome 失败'
-    }
+    const localRes = await fetch('http://127.0.0.1:9292/json/version', {
+      method: 'HEAD',
+      mode: 'no-cors'
+    })
+    chromeStarted.value = true
   } catch (e) {
-    chromeError.value = e.message || '网络错误'
+    chromeError.value = 'Chrome 调试模式未开启，请运行: chrome --remote-debugging-port=9292'
   } finally {
     startingChrome.value = false
   }
 }
 
 const checkChromeStatus = async () => {
+  checkingChrome.value = true
+  startingChrome.value = true
+  
   try {
     const res = await xhsApi.checkChrome()
-    chromeStarted.value = res.data?.running || false
-    chromePort.value = res.data?.chrome_port || 9292
+    if (res.data?.running) {
+      chromeStarted.value = true
+    } else {
+      try {
+        const localRes = await fetch('http://127.0.0.1:9292/json/version', { 
+          method: 'HEAD',
+          mode: 'no-cors'
+        })
+        chromeStarted.value = true
+      } catch (e2) {
+        chromeStarted.value = false
+      }
+    }
   } catch (e) {
-    chromeStarted.value = false
+    try {
+      const localRes = await fetch('http://127.0.0.1:9292/json/version', { 
+        method: 'HEAD',
+        mode: 'no-cors'
+      })
+      chromeStarted.value = true
+    } catch (e2) {
+      chromeStarted.value = false
+    }
   } finally {
     checkingChrome.value = false
+    startingChrome.value = false
   }
 }
 
