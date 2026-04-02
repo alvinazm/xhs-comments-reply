@@ -123,4 +123,5 @@ if __name__ == "__main__":
         host=Config.FLASK_HOST,
         port=Config.FLASK_PORT,
         debug=Config.FLASK_DEBUG,
+        use_reloader=False,
     )
