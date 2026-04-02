@@ -17,7 +17,7 @@ try {
   console.error('Failed to load config:', e.message)
 }
 
-const backendHost = config?.backend?.host
+const backendHost = config?.backend?.host === '0.0.0.0' ? 'localhost' : config?.backend?.host
 const backendPort = config?.backend?.port
 const frontendPort = config?.frontend?.port
 const serverHost = config?.server?.host || 'localhost'
