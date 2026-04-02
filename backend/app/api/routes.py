@@ -86,9 +86,12 @@ def check_chrome():
                     "running": True,
                     "source": "client",
                     "client_count": get_client_count(),
+                    "is_remote": Config.CHROME_HOST not in ("localhost", "127.0.0.1"),
                 },
             ).to_dict()
         )
+
+    is_remote = Config.CHROME_HOST not in ("localhost", "127.0.0.1")
 
     try:
         resp = requests.get(
@@ -98,13 +101,24 @@ def check_chrome():
         return jsonify(
             ApiResponse(
                 success=True,
-                data={"running": running, "source": "server" if running else "none"},
+                data={
+                    "running": running,
+                    "source": "server" if running else "none",
+                    "is_remote": is_remote,
+                    "chrome_port": Config.CHROME_PORT,
+                },
             ).to_dict()
         )
     except Exception:
         return jsonify(
             ApiResponse(
-                success=True, data={"running": False, "source": "none"}
+                success=True,
+                data={
+                    "running": False,
+                    "source": "none",
+                    "is_remote": is_remote,
+                    "chrome_port": Config.CHROME_PORT,
+                },
             ).to_dict()
         )
 
