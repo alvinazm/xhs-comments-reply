@@ -45,6 +45,14 @@ comment_bp = Blueprint("comment", __name__, url_prefix="/api")
 def start_chrome():
     """启动 Chrome 调试模式。"""
     try:
+        if Config.CHROME_HOST not in ("localhost", "127.0.0.1"):
+            return jsonify(
+                ApiResponse(
+                    success=False,
+                    error=f"远程模式下请手动在本地启动 Chrome，端口: {Config.CHROME_PORT}",
+                ).to_dict()
+            ), 400
+
         if ensure_chrome(
             host=Config.CHROME_HOST, port=Config.CHROME_PORT, headless=False
         ):
