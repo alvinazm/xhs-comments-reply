@@ -22,6 +22,8 @@ CHROME_PATHS = [
     "/usr/bin/chromium-browser",
     "/opt/google/chrome/chrome",
     "/usr/bin/google-chrome-stable",
+    "/usr/local/bin/google-chrome",
+    "/snap/bin/chromium",
 ]
 
 
