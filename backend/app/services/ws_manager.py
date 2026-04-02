@@ -18,6 +18,7 @@ WS_SERVER_HOST = Config.WS_SERVER_HOST
 WS_SERVER_PORT = Config.WS_SERVER_PORT
 
 clients: Dict[str, WebSocketServerProtocol] = {}
+ws_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def register_client(client_id: str, websocket: WebSocketServerProtocol):
@@ -181,8 +182,10 @@ async def handle_cdp_response(data: dict):
 
 async def start_ws_server(host=WS_SERVER_HOST, port=WS_SERVER_PORT):
     """启动 WebSocket 服务器"""
+    global ws_loop
     logger.info(f"正在启动 WebSocket 服务器: {host}:{port}")
 
     async with websockets.serve(handle_client, host, port):
         logger.info(f"WebSocket 服务器已启动: {host}:{port}")
+        ws_loop = asyncio.get_event_loop()
         await asyncio.Future()

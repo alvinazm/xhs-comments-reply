@@ -6,7 +6,7 @@ import random
 import time
 from typing import Any
 
-from .ws_manager import execute_cdp_command, get_first_client_id
+from .ws_manager import execute_cdp_command, get_first_client_id, ws_loop
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,10 @@ class RemotePage:
 
     def _execute(self, command: str, params: dict = None, timeout: float = 30.0) -> Any:
         """执行 CDP 命令并返回结果。"""
-        import asyncio
-
-        result = asyncio.run(
+        global ws_loop
+        if ws_loop is None:
+            raise RuntimeError("WebSocket 服务器未启动")
+        result = ws_loop.run_until_complete(
             execute_cdp_command(self.client_id, command, params or {}, timeout=timeout)
         )
         if not result.get("success"):
