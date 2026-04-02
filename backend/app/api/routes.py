@@ -43,37 +43,23 @@ comment_bp = Blueprint("comment", __name__, url_prefix="/api")
 
 @comment_bp.route("/start-chrome", methods=["POST"])
 def start_chrome():
-    """启动 Chrome 调试模式。"""
-    try:
-        if Config.CHROME_HOST not in ("localhost", "127.0.0.1"):
-            return jsonify(
-                ApiResponse(
-                    success=False,
-                    error=f"远程模式下请手动在本地启动 Chrome，端口: {Config.CHROME_PORT}",
-                ).to_dict()
-            ), 400
-
-        if ensure_chrome(
-            host=Config.CHROME_HOST, port=Config.CHROME_PORT, headless=False
-        ):
-            from ..services.xhs.cdp import Browser
-
-            browser = Browser(host=Config.CHROME_HOST, port=Config.CHROME_PORT)
-            page = browser.new_page("https://www.xiaohongshu.com/")
-            return jsonify(
-                ApiResponse(success=True, message="Chrome 启动成功").to_dict()
-            )
+    """检查 Chrome 调试模式状态。"""
+    running = ensure_chrome(host=Config.CHROME_HOST, port=Config.CHROME_PORT)
+    if running:
         return jsonify(
-            ApiResponse(success=False, error="Chrome 启动失败").to_dict()
-        ), 500
-    except Exception as e:
-        logger.error("启动 Chrome 失败: %s", e)
-        return jsonify(ApiResponse(success=False, error=str(e)).to_dict()), 500
+            ApiResponse(success=True, message="Chrome 调试模式已就绪").to_dict()
+        )
+    return jsonify(
+        ApiResponse(
+            success=False,
+            error=f"请手动启动 Chrome 并开启调试模式，端口: {Config.CHROME_PORT}",
+        ).to_dict()
+    ), 400
 
 
 @comment_bp.route("/check-chrome", methods=["GET"])
 def check_chrome():
-    """检查 Chrome 调试模式状态（支持客户端和服务端两种模式）"""
+    """检查 Chrome 调试模式状态。"""
     from ..services.ws_manager import is_any_client_connected
 
     if is_any_client_connected():
@@ -86,12 +72,10 @@ def check_chrome():
                     "running": True,
                     "source": "client",
                     "client_count": get_client_count(),
-                    "is_remote": Config.CHROME_HOST not in ("localhost", "127.0.0.1"),
+                    "chrome_port": Config.CHROME_PORT,
                 },
             ).to_dict()
         )
-
-    is_remote = Config.CHROME_HOST not in ("localhost", "127.0.0.1")
 
     try:
         resp = requests.get(
@@ -104,7 +88,6 @@ def check_chrome():
                 data={
                     "running": running,
                     "source": "server" if running else "none",
-                    "is_remote": is_remote,
                     "chrome_port": Config.CHROME_PORT,
                 },
             ).to_dict()
@@ -116,7 +99,6 @@ def check_chrome():
                 data={
                     "running": False,
                     "source": "none",
-                    "is_remote": is_remote,
                     "chrome_port": Config.CHROME_PORT,
                 },
             ).to_dict()

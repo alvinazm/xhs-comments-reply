@@ -46,18 +46,14 @@
             </svg>
           </div>
           <h2 class="text-xl font-bold text-gray-800 mb-2">第一步：启动 Chrome 并登录</h2>
-          <p v-if="isRemoteMode" class="text-gray-500 mb-6">
-            请在本地手动启动 Chrome 调试模式，端口：{{ chromePort }}<br>
-            <span class="text-sm text-gray-400">命令：chrome --remote-debugging-port={{ chromePort }}</span>
-          </p>
-          <p v-else class="text-gray-500 mb-6">点击下方按钮启动 Chrome 并打开小红书，请手动登录</p>
+          <p class="text-gray-500 mb-2">请手动启动 Chrome 并开启调试模式</p>
+          <p class="text-gray-400 mb-6">命令：chrome --remote-debugging-port={{ chromePort }}</p>
           <button
-            v-if="!isRemoteMode"
             @click="startChrome"
             :disabled="startingChrome"
             class="bg-xhs-red text-white py-3 px-8 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg"
           >
-            {{ startingChrome ? '启动中...' : '启动 Chrome' }}
+            {{ startingChrome ? '检测中...' : '检测 Chrome' }}
           </button>
           <p v-if="chromeError" class="text-red-500 mt-4">{{ chromeError }}</p>
         </div>
@@ -386,7 +382,6 @@ const chromeStarted = ref(false)
 const checkingChrome = ref(true)
 const startingChrome = ref(false)
 const chromeError = ref('')
-const isRemoteMode = ref(false)
 const chromePort = ref(9292)
 const clientConnected = ref(false)
 const url = ref('')
@@ -452,7 +447,6 @@ const checkChromeStatus = async () => {
   try {
     const res = await xhsApi.checkChrome()
     chromeStarted.value = res.data?.running || false
-    isRemoteMode.value = res.data?.is_remote || false
     chromePort.value = res.data?.chrome_port || 9292
   } catch (e) {
     chromeStarted.value = false
