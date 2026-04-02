@@ -62,6 +62,13 @@ def ensure_chrome(
     except requests.exceptions.RequestException:
         pass
 
+    if host != "localhost" and host != "127.0.0.1":
+        logger.warning(
+            "远程服务器跳过 Chrome 启动，请确保本地 Chrome 调试模式已开启 (--remote-debugging-port=%d)",
+            port,
+        )
+        return False
+
     if headless is None:
         headless = not has_display()
 
