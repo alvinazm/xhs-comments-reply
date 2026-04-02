@@ -3,8 +3,8 @@
 import asyncio
 import json
 import logging
-import sys
 import os
+import sys
 from typing import Dict
 import websockets
 from websockets.server import WebSocketServerProtocol
@@ -113,6 +113,7 @@ def is_any_client_connected() -> bool:
 async def start_ws_server(host=WS_SERVER_HOST, port=WS_SERVER_PORT):
     """启动 WebSocket 服务器"""
     logger.info(f"正在启动 WebSocket 服务器: {host}:{port}")
+
     async with websockets.serve(handle_client, host, port):
         logger.info(f"WebSocket 服务器已启动: {host}:{port}")
         await asyncio.Future()

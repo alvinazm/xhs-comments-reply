@@ -26,7 +26,7 @@ NC='\033[0m'
 cleanup_ports() {
     echo -e "${YELLOW}清理占用端口...${NC}"
     
-    for port in $FRONTEND_PORT $BACKEND_PORT $CHROME_PORT; do
+    for port in $FRONTEND_PORT $BACKEND_PORT $CHROME_PORT 8765 5000; do
         pid=$(lsof -t -i :$port 2>/dev/null || true)
         if [ -n "$pid" ]; then
             echo "  释放端口 $port (PID: $pid)"
@@ -35,8 +35,9 @@ cleanup_ports() {
     done
     
     pkill -9 -f "chrome-debug" 2>/dev/null || true
+    pkill -9 -f "app.main" 2>/dev/null || true
     
-    sleep 1
+    sleep 2
 }
 
 start_backend() {
@@ -49,12 +50,12 @@ start_backend() {
     fi
     
     mkdir -p "$PROJECT_DIR/logs"
-    python -m app.main >> "$PROJECT_DIR/logs/server_$(date +%Y-%m-%d).log" 2>&1 &
+    nohup python3 -m app.main >> "$PROJECT_DIR/logs/server_$(date +%Y-%m-%d).log" 2>&1 &
     BACKEND_PID=$!
     echo $BACKEND_PID > /tmp/xhs_backend.pid
     echo -e "${GREEN}后端已启动 (PID: $BACKEND_PID, port=$BACKEND_PORT)${NC}"
     
-    sleep 2
+    sleep 5
 }
 
 start_frontend() {
