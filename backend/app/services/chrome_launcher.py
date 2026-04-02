@@ -11,6 +11,11 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 
+def has_display() -> bool:
+    """检查是否有显示器环境。"""
+    return os.environ.get("DISPLAY") is not None or sys.platform == "darwin"
+
+
 def ensure_chrome(
     host: str = None,
     port: int = None,
