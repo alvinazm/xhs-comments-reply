@@ -79,7 +79,7 @@ start_frontend() {
         npm audit fix --force 2>/dev/null || true
     fi
     
-    npm run dev >> /tmp/frontend.log 2>&1 &
+    nohup npm run dev >> /tmp/frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > /tmp/xhs_frontend.pid
     echo -e "${GREEN}前端已启动 (PID: $FRONTEND_PID, port=$FRONTEND_PORT)${NC}"
