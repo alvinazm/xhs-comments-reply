@@ -61,6 +61,14 @@ class Config:
         os.getenv("WS_SERVER_PORT", _ws_cfg.get("port") if _ws_cfg else 8765)
     )
 
+    _server_cfg = _json_config.get("server")
+    SERVER_HOST = os.getenv(
+        "SERVER_HOST", _server_cfg.get("host") if _server_cfg else "localhost"
+    )
+    SERVER_PORT = int(
+        os.getenv("SERVER_PORT", _server_cfg.get("port") if _server_cfg else 5000)
+    )
+
     MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
     MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
 

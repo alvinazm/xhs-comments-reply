@@ -3,17 +3,53 @@ $PROJECT_DIR = Split-Path -Parent $SCRIPT_DIR
 
 $CONFIG_FILE = Join-Path $PROJECT_DIR "config.json"
 
+function LoadFromServer {
+    param([string]$host, [int]$port)
+    try {
+        $resp = Invoke-RestMethod "http://${host}:${port}/api/config" -TimeoutSec 5
+        return $resp
+    } catch {
+        return $null
+    }
+}
+
+function LoadFromLocal {
+    if (Test-Path $CONFIG_FILE) {
+        $config = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
+        $script:SERVER_HOST = if ($config.server.host) { $config.server.host } else { "localhost" }
+        $script:SERVER_PORT = if ($config.server.port) { $config.server.port } else { 5000 }
+        $script:WS_HOST = if ($config.ws_server.host) { $config.ws_server.host } else { "localhost" }
+        $script:WS_PORT = if ($config.ws_server.port) { $config.ws_server.port } else { 8765 }
+        $script:CHROME_HOST = if ($config.chrome.host) { $config.chrome.host } else { "localhost" }
+        $script:CHROME_PORT = if ($config.chrome.port) { $config.chrome.port } else { 9292 }
+    } else {
+        $script:SERVER_HOST = "localhost"
+        $script:SERVER_PORT = 5000
+        $script:WS_HOST = "localhost"
+        $script:WS_PORT = 8765
+        $script:CHROME_HOST = "localhost"
+        $script:CHROME_PORT = 9292
+    }
+}
+
 if (Test-Path $CONFIG_FILE) {
     $config = Get-Content $CONFIG_FILE -Raw | ConvertFrom-Json
-    $WS_HOST = if ($config.ws_server.host) { $config.ws_server.host } else { "localhost" }
-    $WS_PORT = if ($config.ws_server.port) { $config.ws_server.port } else { 8765 }
-    $CHROME_HOST = if ($config.chrome.host) { $config.chrome.host } else { "localhost" }
-    $CHROME_PORT = if ($config.chrome.port) { $config.chrome.port } else { 9292 }
+    $SERVER_HOST = if ($config.server.host) { $config.server.host } else { "localhost" }
+    $SERVER_PORT = if ($config.server.port) { $config.server.port } else { 5000 }
 } else {
-    $WS_HOST = "localhost"
-    $WS_PORT = 8765
-    $CHROME_HOST = "localhost"
-    $CHROME_PORT = 9292
+    $SERVER_HOST = "localhost"
+    $SERVER_PORT = 5000
+}
+
+$serverConfig = LoadFromServer -host $SERVER_HOST -port $SERVER_PORT
+
+if ($serverConfig) {
+    $WS_HOST = $serverConfig.ws_server.host
+    $WS_PORT = $serverConfig.ws_server.port
+    $CHROME_HOST = $serverConfig.chrome.host
+    $CHROME_PORT = $serverConfig.chrome.port
+} else {
+    LoadFromLocal
 }
 
 $WS_URL = "ws://${WS_HOST}:${WS_PORT}"

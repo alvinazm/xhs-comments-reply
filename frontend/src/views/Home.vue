@@ -20,7 +20,7 @@
       <div v-if="!clientConnected" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
         <p class="text-yellow-800 mb-2">请先运行连接脚本：</p>
         <div class="bg-gray-800 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
-          <pre class="whitespace-pre-wrap">curl -s localhost:3000/connector/connector.sh | bash</pre>
+          <pre class="whitespace-pre-wrap">curl -s {{ serverHost }}:{{ serverPort }}/connector/connector.sh | bash</pre>
         </div>
         <button @click="checkClientStatus" class="mt-2 text-sm text-blue-600 hover:underline">
           点击检测连接状态
@@ -400,6 +400,9 @@ let replyInterval = null
 const showSettings = ref(false)
 const whitelistInput = ref('')
 const savingWhitelist = ref(false)
+
+const serverHost = typeof __SERVER_HOST__ !== 'undefined' ? __SERVER_HOST__ : 'localhost'
+const serverPort = typeof __SERVER_PORT__ !== 'undefined' ? __SERVER_PORT__ : 5000
 
 const displayedComments = computed(() => {
   return comments.value.slice(0, displayedCount)

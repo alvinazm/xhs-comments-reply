@@ -5,16 +5,47 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 CONFIG_FILE="$PROJECT_DIR/config.json"
 
+load_from_server() {
+    local server_host="$1"
+    local server_port="$2"
+    curl -s "http://${server_host}:${server_port}/api/config" 2>/dev/null
+}
+
+load_from_local() {
+    if [ -f "$CONFIG_FILE" ]; then
+        SERVER_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('server', {}).get('host', 'localhost'))" 2>/dev/null)
+        SERVER_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('server', {}).get('port', 5000))" 2>/dev/null)
+        WS_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('host', 'localhost'))" 2>/dev/null)
+        WS_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('port', 8765))" 2>/dev/null)
+        CHROME_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('host', 'localhost'))" 2>/dev/null)
+        CHROME_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('port', 9292))" 2>/dev/null)
+    else
+        SERVER_HOST="localhost"
+        SERVER_PORT=5000
+        WS_HOST="localhost"
+        WS_PORT=8765
+        CHROME_HOST="localhost"
+        CHROME_PORT=9292
+    fi
+}
+
 if [ -f "$CONFIG_FILE" ]; then
-    WS_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('host', 'localhost'))" 2>/dev/null)
-    WS_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('ws_server', {}).get('port', 8765))" 2>/dev/null)
-    CHROME_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('host', 'localhost'))" 2>/dev/null)
-    CHROME_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('chrome', {}).get('port', 9292))" 2>/dev/null)
+    SERVER_HOST=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('server', {}).get('host', 'localhost'))" 2>/dev/null)
+    SERVER_PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('server', {}).get('port', 5000))" 2>/dev/null)
 else
-    WS_HOST="localhost"
-    WS_PORT=8765
-    CHROME_HOST="localhost"
-    CHROME_PORT=9292
+    SERVER_HOST="localhost"
+    SERVER_PORT=5000
+fi
+
+CONFIG_JSON=$(load_from_server "$SERVER_HOST" "$SERVER_PORT")
+
+if [ -n "$CONFIG_JSON" ] && [ "$CONFIG_JSON" != "null" ]; then
+    WS_HOST=$(echo "$CONFIG_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ws_server',{}).get('host','localhost'))" 2>/dev/null)
+    WS_PORT=$(echo "$CONFIG_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ws_server',{}).get('port',8765))" 2>/dev/null)
+    CHROME_HOST=$(echo "$CONFIG_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('chrome',{}).get('host','localhost'))" 2>/dev/null)
+    CHROME_PORT=$(echo "$CONFIG_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('chrome',{}).get('port',9292))" 2>/dev/null)
+else
+    load_from_local
 fi
 
 WS_URL="ws://${WS_HOST}:${WS_PORT}"

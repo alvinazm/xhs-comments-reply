@@ -76,6 +76,24 @@ def create_app() -> Flask:
 
         return jsonify({"connected": is_any_client_connected()})
 
+    @app.route("/api/config")
+    def get_config():
+        """获取服务端配置供客户端使用"""
+        from ..config import Config
+
+        return jsonify(
+            {
+                "ws_server": {
+                    "host": Config.WS_SERVER_HOST,
+                    "port": Config.WS_SERVER_PORT,
+                },
+                "chrome": {
+                    "host": Config.CHROME_HOST,
+                    "port": Config.CHROME_PORT,
+                },
+            }
+        )
+
     return app
 
 

@@ -20,6 +20,8 @@ try {
 const backendHost = config?.backend?.host
 const backendPort = config?.backend?.port
 const frontendPort = config?.frontend?.port
+const serverHost = config?.server?.host || 'localhost'
+const serverPort = config?.server?.port || 5000
 
 export default defineConfig({
   plugins: [vue()],
@@ -36,5 +38,9 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  define: {
+    __SERVER_HOST__: JSON.stringify(serverHost),
+    __SERVER_PORT__: JSON.stringify(serverPort)
   }
 })

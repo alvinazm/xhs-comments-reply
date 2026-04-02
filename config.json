@@ -1,4 +1,8 @@
 {
+  "server": {
+    "host": "47.94.111.53",
+    "port": 5000
+  },
   "chrome": {
     "host": "localhost",
     "port": 9292
