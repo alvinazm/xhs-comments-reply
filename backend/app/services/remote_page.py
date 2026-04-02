@@ -6,7 +6,7 @@ import random
 import time
 from typing import Any
 
-from ..ws_manager import execute_cdp_command, get_first_client_id
+from .ws_manager import execute_cdp_command, get_first_client_id
 
 logger = logging.getLogger(__name__)
 
